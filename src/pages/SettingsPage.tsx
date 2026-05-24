@@ -1,5 +1,6 @@
 import React from "react";
 import { getVersion } from "@tauri-apps/api/app";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   CheckCircle2,
   Download,
@@ -197,7 +198,7 @@ export function SettingsPage({
     }
 
     try {
-      window.open(updateInfo.releaseUrl, "_blank", "noopener,noreferrer");
+      await openUrl(updateInfo.releaseUrl);
     } catch (error) {
       setUpdateState("error");
       setUpdateMessage(t("settings.openDownloadFailed", { error: String(error) }));
