@@ -132,11 +132,7 @@ fn restore_model_provider(doc: &mut DocumentMut, original: &OriginalCodexConfig)
     }
 }
 
-fn restore_model(
-    doc: &mut DocumentMut,
-    original: &OriginalCodexConfig,
-    last_written_model: &str,
-) {
+fn restore_model(doc: &mut DocumentMut, original: &OriginalCodexConfig, last_written_model: &str) {
     let current_model = doc
         .get("model")
         .and_then(|item| item.as_str())
@@ -517,8 +513,11 @@ trust_level = "trusted"
         let temp = tempfile::tempdir().unwrap();
         let codex_dir = temp.path().join("codex");
         std::fs::create_dir_all(&codex_dir).unwrap();
-        std::fs::write(codex_dir.join("config.toml"), "[mcp_servers.demo]\ncommand = \"node\"\n")
-            .unwrap();
+        std::fs::write(
+            codex_dir.join("config.toml"),
+            "[mcp_servers.demo]\ncommand = \"node\"\n",
+        )
+        .unwrap();
         let paths = test_paths(temp.path());
         let lease = prepare_config_lease(
             &paths,

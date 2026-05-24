@@ -3,7 +3,7 @@ use crate::app::secrets;
 use crate::app::store::AppStore;
 use anyhow::{anyhow, Result};
 use axum::body::{Body, Bytes};
-use axum::extract::State;
+use axum::extract::{DefaultBodyLimit, State};
 use axum::http::header::{CONTENT_ENCODING, CONTENT_LENGTH, HOST};
 use axum::http::{HeaderMap, Method, Response, StatusCode, Uri};
 use axum::response::IntoResponse;
@@ -16,6 +16,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::oneshot;
+
+const PROXY_BODY_LIMIT_BYTES: usize = 64 * 1024 * 1024;
 
 #[derive(Clone)]
 struct ProxyState {
@@ -56,6 +58,7 @@ pub async fn start(store: Arc<AppStore>, port: u16) -> Result<ProxyHandle> {
         .route("/v1/responses", post(forward))
         .route("/v1/responses/compact", post(forward))
         .fallback(reject)
+        .layer(DefaultBodyLimit::max(PROXY_BODY_LIMIT_BYTES))
         .with_state(state);
 
     let (sender, receiver) = oneshot::channel::<()>();

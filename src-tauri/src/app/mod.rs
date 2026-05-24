@@ -488,19 +488,15 @@ pub async fn update_settings(
         return Err("代理端口必须大于 0".to_string());
     }
     let next_codex_dir_override = normalize_optional(input.codex_dir_override.clone());
-    let (
-        was_enabled,
-        previous_port,
-        previous_codex_dir_override,
-        previous_launch_at_login,
-    ) = runtime.store.with_data(|state| {
-        (
-            state.enabled,
-            state.proxy_port,
-            state.codex_dir_override.clone(),
-            state.launch_at_login,
-        )
-    });
+    let (was_enabled, previous_port, previous_codex_dir_override, previous_launch_at_login) =
+        runtime.store.with_data(|state| {
+            (
+                state.enabled,
+                state.proxy_port,
+                state.codex_dir_override.clone(),
+                state.launch_at_login,
+            )
+        });
     runtime
         .store
         .update(|state| {
