@@ -8,6 +8,7 @@ import { ImportProviderPage } from "./pages/ImportProviderPage";
 import { ProviderFormPage } from "./pages/ProviderFormPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { StatsDailyPage, StatsPage } from "./pages/StatsPage";
 import { api } from "./lib/api";
 import type { Snapshot, ThemeMode } from "./lib/types";
 import { cx } from "./lib/ui";
@@ -182,6 +183,8 @@ function AppShell({
               {view === "provider-import" && (
                 <ImportProviderPage snapshot={snapshot} busy={busy} run={run} go={go} />
               )}
+              {view === "stats" && <StatsPage go={go} />}
+              {view === "stats-daily" && <StatsDailyPage go={go} />}
               {view === "settings" && (
                 <SettingsPage
                   snapshot={snapshot}

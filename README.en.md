@@ -16,7 +16,7 @@ That matters when you want to use third-party models, relay services, or custom 
 
 ### App screenshot
 
-![codex-switch app screenshot](./docs/images/codex-switch-screenshot.png)
+![codex-switch app screenshot](./docs/images/codex-switch-screenshot.en-US.png)
 
 ### Enabled effect
 

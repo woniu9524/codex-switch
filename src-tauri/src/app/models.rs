@@ -254,3 +254,62 @@ pub struct UpdateInfo {
     pub checked_at: i64,
     pub notes: String,
 }
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenUsage {
+    #[serde(default, alias = "input_tokens")]
+    pub input_tokens: u64,
+    #[serde(default, alias = "cached_input_tokens")]
+    pub cached_input_tokens: u64,
+    #[serde(default, alias = "output_tokens")]
+    pub output_tokens: u64,
+    #[serde(default, alias = "reasoning_output_tokens")]
+    pub reasoning_output_tokens: u64,
+    #[serde(default, alias = "total_tokens")]
+    pub total_tokens: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyTokenUsage {
+    pub date: String,
+    pub usage: TokenUsage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelTokenUsage {
+    pub provider_id: String,
+    pub model: String,
+    pub usage: TokenUsage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenSpeed {
+    pub tokens_per_hour: f64,
+    pub output_tokens_per_second: f64,
+}
+
+impl Default for TokenSpeed {
+    fn default() -> Self {
+        Self {
+            tokens_per_hour: 0.0,
+            output_tokens_per_second: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatsSummary {
+    pub all_time_usage: TokenUsage,
+    pub today_usage: TokenUsage,
+    pub last_7_days_usage: TokenUsage,
+    pub daily_usage: Vec<DailyTokenUsage>,
+    pub model_usage: Vec<ModelTokenUsage>,
+    pub speed: TokenSpeed,
+    pub scanned_session_count: usize,
+    pub usage_event_count: usize,
+}

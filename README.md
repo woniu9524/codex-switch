@@ -16,7 +16,7 @@
 
 ### 软件截图
 
-![codex-switch 软件截图](./docs/images/codex-switch-screenshot.png)
+![codex-switch 软件截图](./docs/images/codex-switch-screenshot.zh-CN.png)
 
 ### 启用效果
 

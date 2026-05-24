@@ -4,13 +4,14 @@ pub mod deeplink;
 pub mod models;
 pub mod provider_icons;
 pub mod secrets;
+pub mod stats;
 pub mod store;
 
 use crate::proxy::{self, ProxyHandle};
 use anyhow::{anyhow, Result};
 use models::{
     ImportPreview, KeyStatus, ModelList, Provider, ProviderInput, SettingsInput, Snapshot,
-    UpdateInfo,
+    StatsSummary, UpdateInfo,
 };
 use reqwest::header::{ACCEPT, USER_AGENT};
 use semver::Version;
@@ -285,6 +286,15 @@ pub async fn update_info(app: AppHandle) -> Result<UpdateInfo, String> {
         checked_at: chrono::Utc::now().timestamp_millis(),
         notes,
     })
+}
+
+#[tauri::command]
+pub async fn stats_summary(runtime: State<'_, Arc<RuntimeState>>) -> Result<StatsSummary, String> {
+    let codex_dir_override = runtime
+        .store
+        .with_data(|state| state.codex_dir_override.clone());
+    let codex_dir = codex_auth::codex_dir(codex_dir_override.as_deref()).map_err(to_user_error)?;
+    stats::stats_summary(&codex_dir).map_err(to_user_error)
 }
 
 #[tauri::command]

@@ -68,6 +68,7 @@ pub fn run() {
             app::import_provider,
             app::provider_api_key,
             app::fetch_provider_models,
+            app::stats_summary,
             app::update_info,
             app::update_settings,
             app::restore_backup,

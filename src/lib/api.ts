@@ -5,6 +5,7 @@ import type {
   ProviderInput,
   SettingsInput,
   Snapshot,
+  StatsSummary,
   UpdateInfo,
 } from "./types";
 
@@ -31,5 +32,6 @@ export const api = {
   updateSettings: (input: SettingsInput) => command<Snapshot>("update_settings", { input }),
   selectCodexDirectory: () => command<string | null>("select_codex_directory"),
   restoreBackup: () => command<Snapshot>("restore_backup"),
+  statsSummary: () => command<StatsSummary>("stats_summary"),
   updateInfo: () => command<UpdateInfo>("update_info"),
 };

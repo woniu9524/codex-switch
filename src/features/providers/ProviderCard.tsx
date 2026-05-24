@@ -58,7 +58,7 @@ export function ProviderCard({
   return (
     <article
       className={cx(
-        "grid grid-cols-[14px_52px_1fr_auto] items-center gap-2.5 rounded-md border bg-white p-3 transition",
+        "grid grid-cols-[10px_40px_1fr_auto] items-center gap-2 rounded-md border bg-white px-2.5 py-2 transition",
         isCurrent
           ? "border-emerald-600 shadow-[inset_3px_0_0_#059669]"
           : "border-stone-200 hover:border-stone-300",
@@ -66,32 +66,32 @@ export function ProviderCard({
     >
       <span
         className={cx(
-          "status-dot size-3.5 rounded-full border-2",
+          "status-dot size-2.5 rounded-full border-2",
           isCurrent && "border-emerald-700 bg-emerald-600",
           !isCurrent && missingKey && "border-amber-400 bg-amber-400",
           !isCurrent && !missingKey && "border-stone-500 bg-white",
         )}
       />
-      <ProviderAvatar provider={provider} />
+      <ProviderAvatar provider={provider} size="md" />
 
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
-          <h2 className="truncate text-[16px] font-bold text-stone-950">{provider.name}</h2>
+          <h2 className="truncate text-[14px] font-bold text-stone-950">{provider.name}</h2>
           {isCurrent && <Badge tone="active">{t("providers.badgeActive")}</Badge>}
           {missingKey && <Badge tone="warn">{t("providers.badgeMissingKey")}</Badge>}
           {provider.disableImageGeneration && <Badge>{t("providers.badgeNoImageTool")}</Badge>}
         </div>
-        <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] text-stone-500">
-          <Box size={14} className="shrink-0" />
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-stone-500">
+          <Box size={12} className="shrink-0" />
           <span className="truncate">{provider.model}</span>
         </div>
-        <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] text-stone-500">
-          <Globe2 size={14} className="shrink-0" />
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-stone-500">
+          <Globe2 size={12} className="shrink-0" />
           <span className="truncate">{provider.endpoint}</span>
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1">
         {!isCurrent && (
           <Button size="sm" disabled={busy || missingKey} onClick={onSwitch}>
             {t("providers.switch")}

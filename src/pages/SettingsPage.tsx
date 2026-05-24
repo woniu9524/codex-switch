@@ -211,8 +211,11 @@ export function SettingsPage({
   return (
     <Page
       title={t("settings.title")}
-      actions={
-        <div className="min-w-[96px] text-right text-[12px] font-semibold text-stone-500">
+      hideTitle
+      compact
+    >
+      {saveState !== "idle" && (
+        <div className="flex min-h-6 justify-end text-right text-[12px] font-semibold text-stone-500">
           {saveState === "saving" && (
             <span className="inline-flex items-center gap-1 text-stone-500">
               <Loader2 className="animate-spin" size={13} />
@@ -234,12 +237,11 @@ export function SettingsPage({
             </span>
           )}
         </div>
-      }
-    >
+      )}
       <SettingSection icon={<Globe2 size={20} />} title={t("settings.proxy")}>
         <SettingRow label={t("settings.port")}>
           <TextInput
-            className="w-[132px]"
+            className="h-8 w-[116px]"
             type="number"
             value={String(form.proxyPort)}
             onChange={(event) => set({ proxyPort: Number(event.target.value) })}
@@ -252,13 +254,13 @@ export function SettingsPage({
         >
           <div className="flex min-w-0 items-center gap-2">
             <TextInput
-              className="w-[180px]"
+              className="h-8 w-[168px]"
               value={form.codexDirOverride ?? ""}
               onChange={(event) => set({ codexDirOverride: event.target.value })}
               onBlur={flushSave}
               placeholder={snapshot.codex.codexDir}
             />
-            <Button type="button" onClick={pickCodexDir} title={t("settings.chooseFolder")}>
+            <Button type="button" size="sm" onClick={pickCodexDir} title={t("settings.chooseFolder")}>
               <FolderCog size={16} />
             </Button>
           </div>
@@ -310,6 +312,7 @@ export function SettingsPage({
           }
         >
           <Button
+            size="sm"
             disabled={busy || !snapshot.state.lastBackupPath}
             onClick={() => run(api.restoreBackup, t("settings.restoredBackup"))}
           >
@@ -320,6 +323,7 @@ export function SettingsPage({
         <SettingRow label={t("settings.checkUpdates")} detail={updateDetail}>
           <div className="flex items-center gap-2">
             <Button
+              size="sm"
               disabled={busy || updateState === "checking"}
               onClick={checkForUpdates}
             >
@@ -331,6 +335,7 @@ export function SettingsPage({
               {updateState === "checking" ? t("settings.checking") : t("settings.checkUpdates")}
             </Button>
             <Button
+              size="sm"
               disabled={!updateInfo?.hasUpdate}
               onClick={openReleasePage}
               title={updateInfo?.hasUpdate ? t("settings.openReleasePage") : t("settings.downloadNeedsUpdate")}

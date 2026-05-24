@@ -1,6 +1,13 @@
 import type { Snapshot } from "../lib/types";
 
-export type View = "control" | "providers" | "provider-form" | "provider-import" | "settings";
+export type View =
+  | "control"
+  | "providers"
+  | "provider-form"
+  | "provider-import"
+  | "stats"
+  | "stats-daily"
+  | "settings";
 
 export type RunAction = (
   action: () => Promise<Snapshot>,

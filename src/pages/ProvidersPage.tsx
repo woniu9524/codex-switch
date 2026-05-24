@@ -31,32 +31,35 @@ export function ProvidersPage({
   return (
     <Page
       title={t("providers.title")}
-      actions={
-        <Button size="lg" tone="secondary" onClick={() => go("provider-form")}>
-          <Plus size={17} />
-          {t("providers.add")}
-        </Button>
-      }
+      hideTitle
+      compact
     >
-      <label className="relative block">
-        <Search
-          className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-stone-500"
-          size={20}
-        />
-        <input
-          className="h-10 w-full rounded-md border border-stone-300 bg-white pl-12 pr-3 text-[14px] outline-none transition placeholder:text-stone-400 focus:border-emerald-600 focus:ring-3 focus:ring-emerald-100"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={t("providers.searchPlaceholder")}
-        />
-      </label>
+      <div className="flex items-center gap-2">
+        <label className="relative block min-w-0 flex-1">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-500"
+            size={16}
+          />
+          <input
+            className="h-9 w-full rounded-md border border-stone-300 bg-white pl-9 pr-3 text-[13px] outline-none transition placeholder:text-stone-400 focus:border-emerald-600 focus:ring-3 focus:ring-emerald-100"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("providers.searchPlaceholder")}
+          />
+        </label>
+        <Button className="px-2.5" size="md" tone="secondary" onClick={() => go("provider-form")}>
+          <Plus size={18} />
+          <span className="hidden min-[430px]:inline">{t("providers.add")}</span>
+          <span className="min-[430px]:hidden">{t("providers.addShort")}</span>
+        </Button>
+      </div>
 
       {snapshot.state.providers.length === 0 ? (
         <EmptyState title={t("providers.emptyTitle")} action={t("providers.emptyAction")} />
       ) : providers.length === 0 ? (
         <EmptyState title={t("providers.noMatchTitle")} action={t("providers.noMatchAction")} />
       ) : (
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2">
           {providers.map((provider) => (
             <ProviderCard
               key={provider.id}
@@ -71,7 +74,7 @@ export function ProvidersPage({
         </div>
       )}
 
-      <Button className="mt-auto w-full" size="lg" onClick={() => go("provider-import")}>
+      <Button className="mt-auto w-full" size="md" onClick={() => go("provider-import")}>
         <Link size={17} />
         {t("providers.importLink")}
       </Button>

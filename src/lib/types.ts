@@ -136,3 +136,38 @@ export interface UpdateInfo {
   checkedAt: number;
   notes: string;
 }
+
+export interface TokenUsage {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  reasoningOutputTokens: number;
+  totalTokens: number;
+}
+
+export interface DailyTokenUsage {
+  date: string;
+  usage: TokenUsage;
+}
+
+export interface ModelTokenUsage {
+  providerId: string;
+  model: string;
+  usage: TokenUsage;
+}
+
+export interface TokenSpeed {
+  tokensPerHour: number;
+  outputTokensPerSecond: number;
+}
+
+export interface StatsSummary {
+  allTimeUsage: TokenUsage;
+  todayUsage: TokenUsage;
+  last7DaysUsage: TokenUsage;
+  dailyUsage: DailyTokenUsage[];
+  modelUsage: ModelTokenUsage[];
+  speed: TokenSpeed;
+  scannedSessionCount: number;
+  usageEventCount: number;
+}
