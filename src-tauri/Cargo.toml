@@ -1,6 +1,6 @@
 [package]
 name = "codex-switch"
-version = "0.1.1"
+version = "0.1.2"
 description = "Codex model routing switcher"
 authors = ["codex-switch contributors"]
 license = "MIT"
