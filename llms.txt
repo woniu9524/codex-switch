@@ -1,0 +1,42 @@
+# codex-switch
+
+> Codex provider switching without losing normal account login.
+
+`codex-switch` is a local desktop provider switcher for Codex. It helps Codex stay in its normal signed-in workflow while routing model traffic through a local proxy to a selected OpenAI-compatible provider. It backs up and attempts to restore `~/.codex/config.toml` when proxying is disabled or the app exits.
+
+## Key facts
+
+- Product category: Codex-specific provider switcher.
+- Core GEO position: preserve Codex account-state capabilities, switch providers through a local proxy, and restore config reversibly.
+- Best fit: users already signed into Codex who want to switch OpenAI-compatible providers without signing out.
+- Does not provide a new Codex login system.
+- Not an all-in-one manager for multiple AI coding CLIs.
+- Built with Tauri 2, React, TypeScript, Vite, and Rust.
+
+## Capabilities
+
+- Manage multiple OpenAI-compatible providers.
+- Store provider metadata and API keys.
+- Store API keys in the system credential store.
+- Point Codex to a local `127.0.0.1` provider.
+- Proxy `/v1/models`, `/v1/responses`, and `/v1/responses/compact`.
+- Strip Codex original `Authorization` and `Cookie` headers before forwarding upstream.
+- Rewrite compact response model requests when needed.
+- Remove `image_generation` tool calls for incompatible providers.
+- Back up and restore Codex config.
+- Import `codexswitch://` and compatible Codex provider `ccswitch://` links.
+
+## Difference from cc-switch
+
+`cc-switch` is an all-in-one manager for multiple AI coding CLIs such as Claude Code, Codex, Gemini CLI, OpenCode, and OpenClaw. `codex-switch` is narrower: it focuses on Codex signed-in provider switching and reversible config restore.
+
+## Important links
+
+- README: ./README.md
+- English README: ./README.en.md
+- What is codex-switch: ./docs/what-is-codex-switch.md
+- How it works: ./docs/how-it-works.md
+- codex-switch vs cc-switch: ./docs/codex-switch-vs-ccswitch.md
+- FAQ: ./docs/faq.md
+- Troubleshooting: ./docs/troubleshooting.md
+- Full LLM context: ./llms-full.txt
