@@ -111,3 +111,12 @@ export interface ModelList {
   providerId: string;
   models: string[];
 }
+
+export interface UpdateInfo {
+  currentVersion: string;
+  latestVersion?: string | null;
+  hasUpdate: boolean;
+  releaseUrl: string;
+  checkedAt: number;
+  notes: string;
+}

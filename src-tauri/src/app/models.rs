@@ -193,3 +193,14 @@ pub struct ModelList {
     pub provider_id: String,
     pub models: Vec<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateInfo {
+    pub current_version: String,
+    pub latest_version: Option<String>,
+    pub has_update: bool,
+    pub release_url: String,
+    pub checked_at: i64,
+    pub notes: String,
+}

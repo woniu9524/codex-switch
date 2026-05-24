@@ -1,13 +1,15 @@
 mod app;
 mod proxy;
 
+use anyhow::{Context, Result};
 use app::RuntimeState;
 use std::sync::Arc;
 use tauri::{
     menu::MenuBuilder,
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WindowEvent,
+    AppHandle, Manager, WindowEvent,
 };
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt as AutostartExt};
 
 const TRAY_MENU_SHOW: &str = "tray_show";
 const TRAY_MENU_QUIT: &str = "tray_quit";
@@ -19,12 +21,19 @@ pub fn run() {
     let run_runtime = runtime.clone();
 
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None::<Vec<&'static str>>,
+        ))
         .plugin(tauri_plugin_log::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(runtime)
         .setup(move |app| {
+            if let Err(error) = sync_launch_at_login_preference(app.handle(), &setup_runtime) {
+                log::error!("failed to sync launch-at-login setting: {error}");
+            }
             setup_tray(app)?;
             let runtime = setup_runtime.clone();
             tauri::async_runtime::spawn(async move {
@@ -59,6 +68,7 @@ pub fn run() {
             app::import_provider,
             app::provider_api_key,
             app::fetch_provider_models,
+            app::update_info,
             app::update_settings,
             app::restore_backup,
             app::select_codex_directory,
@@ -119,4 +129,28 @@ fn show_main_window(app: &tauri::AppHandle) {
             log::error!("failed to focus main window: {error}");
         }
     }
+}
+
+fn sync_launch_at_login_preference(app: &AppHandle, runtime: &RuntimeState) -> Result<()> {
+    let desired = runtime.launch_at_login_enabled();
+    let autostart = app.autolaunch();
+    let current = autostart
+        .is_enabled()
+        .context("read autostart status from the operating system")?;
+
+    if desired == current {
+        return Ok(());
+    }
+
+    if desired {
+        autostart
+            .enable()
+            .context("register autostart with the operating system")?;
+    } else {
+        autostart
+            .disable()
+            .context("remove autostart from the operating system")?;
+    }
+
+    Ok(())
 }

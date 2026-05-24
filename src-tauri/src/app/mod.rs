@@ -10,7 +10,10 @@ use crate::proxy::{self, ProxyHandle};
 use anyhow::{anyhow, Result};
 use models::{
     ImportPreview, KeyStatus, ModelList, Provider, ProviderInput, SettingsInput, Snapshot,
+    UpdateInfo,
 };
+use reqwest::header::{ACCEPT, USER_AGENT};
+use semver::Version;
 use serde::Deserialize;
 use std::net::TcpListener;
 use std::path::PathBuf;
@@ -20,6 +23,7 @@ use std::sync::{
 };
 use store::AppStore;
 use tauri::{AppHandle, State};
+use tauri_plugin_autostart::ManagerExt as AutostartExt;
 use tauri_plugin_dialog::DialogExt;
 use url::Url;
 use uuid::Uuid;
@@ -66,6 +70,10 @@ impl RuntimeState {
 
     pub fn is_exiting(&self) -> bool {
         self.exiting.load(Ordering::SeqCst)
+    }
+
+    pub fn launch_at_login_enabled(&self) -> bool {
+        self.store.with_data(|state| state.launch_at_login)
     }
 
     fn update_codex_model(&self, model: &str) -> Result<()> {
@@ -189,6 +197,61 @@ impl RuntimeState {
 #[tauri::command]
 pub async fn snapshot(runtime: State<'_, Arc<RuntimeState>>) -> Result<Snapshot, String> {
     snapshot_inner(&runtime).map_err(to_user_error)
+}
+
+#[tauri::command]
+pub async fn update_info(app: AppHandle) -> Result<UpdateInfo, String> {
+    const LATEST_RELEASE_API: &str =
+        "https://api.github.com/repos/woniu9524/codex-switch/releases/latest";
+
+    let current_version = app.package_info().version.to_string();
+    let response = reqwest::Client::new()
+        .get(LATEST_RELEASE_API)
+        .header(ACCEPT, "application/vnd.github+json")
+        .header(USER_AGENT, "codex-switch-update-check")
+        .send()
+        .await
+        .map_err(|error| format!("检查更新失败：无法连接 GitHub Release API: {error}"))?;
+
+    let status = response.status();
+    let body = response
+        .bytes()
+        .await
+        .map_err(|error| format!("检查更新失败：读取 GitHub 返回内容失败: {error}"))?;
+
+    if !status.is_success() {
+        return Err(format!(
+            "检查更新失败：GitHub Release API 返回 {}: {}",
+            status.as_u16(),
+            summarize_response_body(&body)
+        ));
+    }
+
+    let release: GithubLatestRelease = serde_json::from_slice(&body)
+        .map_err(|error| format!("检查更新失败：GitHub Release 数据格式异常: {error}"))?;
+    let latest_version = normalize_release_version(&release.tag_name);
+    let has_update = compare_versions(&current_version, latest_version.as_deref());
+    let notes = if let Some(latest) = latest_version.as_deref() {
+        if has_update {
+            format!("发现新版本 {latest}，你当前是 {current_version}")
+        } else {
+            format!("当前已是最新版本 {current_version}")
+        }
+    } else {
+        format!(
+            "已读取到最新 Release 标签 {}，但未能解析出标准版本号",
+            release.tag_name
+        )
+    };
+
+    Ok(UpdateInfo {
+        current_version,
+        latest_version,
+        has_update,
+        release_url: release.html_url,
+        checked_at: chrono::Utc::now().timestamp_millis(),
+        notes,
+    })
 }
 
 #[tauri::command]
@@ -383,6 +446,7 @@ pub async fn fetch_provider_models(
 #[tauri::command]
 pub async fn update_settings(
     input: SettingsInput,
+    app: AppHandle,
     runtime: State<'_, Arc<RuntimeState>>,
 ) -> Result<Snapshot, String> {
     if input.proxy_port == 0 {
@@ -395,6 +459,7 @@ pub async fn update_settings(
         previous_codex_dir_override,
         previous_restore_point,
         previous_last_written_model,
+        previous_launch_at_login,
     ) = runtime.store.with_data(|state| {
         (
             state.enabled,
@@ -402,6 +467,7 @@ pub async fn update_settings(
             state.codex_dir_override.clone(),
             state.restore_point.clone(),
             state.last_written_model.clone(),
+            state.launch_at_login,
         )
     });
     runtime
@@ -414,6 +480,21 @@ pub async fn update_settings(
             Ok(())
         })
         .map_err(to_user_error)?;
+
+    if previous_launch_at_login != input.launch_at_login {
+        if let Err(error) = apply_launch_at_login(&app, input.launch_at_login) {
+            let rollback = runtime.store.update(|state| {
+                state.launch_at_login = previous_launch_at_login;
+                Ok(())
+            });
+            if let Err(rollback_error) = rollback {
+                log::error!(
+                    "failed to roll back launch-at-login after autostart sync error: {rollback_error}"
+                );
+            }
+            return Err(format!("鏇存柊寮€鏈哄惎鍔ㄥけ璐? {error}"));
+        }
+    }
 
     let needs_proxy_config_refresh = was_enabled
         && (previous_port != input.proxy_port
@@ -676,8 +757,38 @@ struct OpenAiModelsResponse {
 }
 
 #[derive(Deserialize)]
+struct GithubLatestRelease {
+    tag_name: String,
+    html_url: String,
+}
+
+#[derive(Deserialize)]
 struct OpenAiModel {
     id: String,
+}
+
+fn normalize_release_version(tag: &str) -> Option<String> {
+    let normalized = tag.trim().trim_start_matches(['v', 'V']).trim();
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(normalized.to_string())
+    }
+}
+
+fn compare_versions(current: &str, latest: Option<&str>) -> bool {
+    let Some(latest) = latest else {
+        return false;
+    };
+
+    let Ok(current) = Version::parse(current.trim()) else {
+        return false;
+    };
+    let Ok(latest) = Version::parse(latest.trim()) else {
+        return false;
+    };
+
+    latest > current
 }
 
 fn join_provider_url(base_url: &str, request_path: &str) -> String {
@@ -780,6 +891,16 @@ fn find_available_port(start: u16) -> Result<u16> {
         }
     }
     Err(anyhow!("从 {start} 开始没有找到可用端口"))
+}
+
+fn apply_launch_at_login(app: &AppHandle, enabled: bool) -> Result<()> {
+    let autostart = app.autolaunch();
+    if enabled {
+        autostart.enable()?;
+    } else {
+        autostart.disable()?;
+    }
+    Ok(())
 }
 
 fn to_user_error(error: anyhow::Error) -> String {

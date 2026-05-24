@@ -5,6 +5,7 @@ import type {
   ProviderInput,
   SettingsInput,
   Snapshot,
+  UpdateInfo,
 } from "./types";
 
 function command<T>(name: string, args?: Record<string, unknown>): Promise<T> {
@@ -30,4 +31,5 @@ export const api = {
   updateSettings: (input: SettingsInput) => command<Snapshot>("update_settings", { input }),
   selectCodexDirectory: () => command<string | null>("select_codex_directory"),
   restoreBackup: () => command<Snapshot>("restore_backup"),
+  updateInfo: () => command<UpdateInfo>("update_info"),
 };

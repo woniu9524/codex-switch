@@ -1,12 +1,22 @@
 import React from "react";
-import { CheckCircle2, FolderCog, Globe2, Loader2, Settings, Wrench } from "lucide-react";
+import { getVersion } from "@tauri-apps/api/app";
+import {
+  CheckCircle2,
+  Download,
+  ExternalLink,
+  FolderCog,
+  Globe2,
+  Loader2,
+  Settings,
+  Wrench,
+} from "lucide-react";
 import type { RunAction } from "../app/types";
-import { Button, SegmentedControl, Switch, TextInput } from "../components/ui";
 import { Page } from "../components/layout/Page";
+import { Button, SegmentedControl, Switch, TextInput } from "../components/ui";
 import { SettingRow, SettingSection } from "../features/settings/SettingSection";
 import { api } from "../lib/api";
 import { compactPath } from "../lib/format";
-import type { SettingsInput, Snapshot, ThemeMode } from "../lib/types";
+import type { SettingsInput, Snapshot, ThemeMode, UpdateInfo } from "../lib/types";
 
 export function SettingsPage({
   snapshot,
@@ -27,6 +37,10 @@ export function SettingsPage({
   });
   const [saveState, setSaveState] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveError, setSaveError] = React.useState<string | null>(null);
+  const [updateState, setUpdateState] = React.useState<"idle" | "checking" | "error">("idle");
+  const [updateMessage, setUpdateMessage] = React.useState<string | null>(null);
+  const [updateInfo, setUpdateInfo] = React.useState<UpdateInfo | null>(null);
+  const [appVersion, setAppVersion] = React.useState("读取中");
   const saveTimerRef = React.useRef<number | null>(null);
   const formRef = React.useRef<SettingsInput>(form);
 
@@ -47,8 +61,25 @@ export function SettingsPage({
   ]);
 
   React.useEffect(() => {
+    let cancelled = false;
+
+    void getVersion()
+      .then((version) => {
+        if (!cancelled) {
+          setAppVersion(version);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAppVersion("未知");
+        }
+      });
+
     return () => {
-      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+      cancelled = true;
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+      }
       onPreviewTheme(null);
     };
   }, [onPreviewTheme]);
@@ -60,6 +91,7 @@ export function SettingsPage({
         setSaveError("端口必须大于 0");
         return null;
       }
+
       setSaveState("saving");
       setSaveError(null);
       const next = await run(() => api.updateSettings(input));
@@ -74,6 +106,7 @@ export function SettingsPage({
         window.setTimeout(() => setSaveState("idle"), 1300);
         return next;
       }
+
       setSaveState("error");
       setSaveError("保存失败，请检查输入");
       onPreviewTheme(snapshot.state.themeMode);
@@ -84,7 +117,9 @@ export function SettingsPage({
 
   const scheduleSave = React.useCallback(
     (input: SettingsInput, delay = 500) => {
-      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+      }
       saveTimerRef.current = window.setTimeout(() => {
         saveTimerRef.current = null;
         void saveSettings(input);
@@ -93,13 +128,20 @@ export function SettingsPage({
     [saveSettings],
   );
 
-  const set = (patch: Partial<SettingsInput>, options?: { delay?: number; immediate?: boolean }) => {
+  const set = (
+    patch: Partial<SettingsInput>,
+    options?: { delay?: number; immediate?: boolean },
+  ) => {
     const next = { ...formRef.current, ...patch };
     formRef.current = next;
     setForm(next);
-    if (patch.themeMode) onPreviewTheme(patch.themeMode);
+    if (patch.themeMode) {
+      onPreviewTheme(patch.themeMode);
+    }
     if (options?.immediate) {
-      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+      }
       void saveSettings(next);
     } else {
       scheduleSave(next, options?.delay);
@@ -117,7 +159,9 @@ export function SettingsPage({
   const pickCodexDir = async () => {
     try {
       const selected = await api.selectCodexDirectory();
-      if (!selected) return;
+      if (!selected) {
+        return;
+      }
       set({ codexDirOverride: selected }, { immediate: true });
     } catch (error) {
       setSaveState("error");
@@ -125,11 +169,40 @@ export function SettingsPage({
     }
   };
 
+  const checkForUpdates = async () => {
+    try {
+      setUpdateState("checking");
+      setUpdateMessage(null);
+      const info = await api.updateInfo();
+      setUpdateInfo(info);
+      setUpdateState("idle");
+      setUpdateMessage(info.notes);
+    } catch (error) {
+      setUpdateState("error");
+      setUpdateMessage(String(error));
+    }
+  };
+
+  const openReleasePage = async () => {
+    if (!updateInfo?.releaseUrl) {
+      return;
+    }
+
+    try {
+      window.open(updateInfo.releaseUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      setUpdateState("error");
+      setUpdateMessage(`打开下载页失败：${String(error)}`);
+    }
+  };
+
+  const updateDetail = updateMessage ?? "手动检查 GitHub Release 最新版本，并与当前版本比较";
+
   return (
     <Page
       title="设置"
       actions={
-        <div className="min-w-[82px] text-right text-[12px] font-semibold text-stone-500">
+        <div className="min-w-[96px] text-right text-[12px] font-semibold text-stone-500">
           {saveState === "saving" && (
             <span className="inline-flex items-center gap-1 text-stone-500">
               <Loader2 className="animate-spin" size={13} />
@@ -143,7 +216,10 @@ export function SettingsPage({
             </span>
           )}
           {saveState === "error" && (
-            <span className="inline-block max-w-[130px] truncate text-red-600" title={saveError ?? undefined}>
+            <span
+              className="inline-block max-w-[140px] truncate text-red-600"
+              title={saveError ?? undefined}
+            >
               {saveError ?? "保存失败"}
             </span>
           )}
@@ -160,7 +236,10 @@ export function SettingsPage({
             onBlur={flushSave}
           />
         </SettingRow>
-        <SettingRow label="Codex 目录" detail={`配置路径 ${compactPath(snapshot.codex.configPath, 42)}`}>
+        <SettingRow
+          label="Codex 目录"
+          detail={`配置路径 ${compactPath(snapshot.codex.configPath, 42)}`}
+        >
           <div className="flex min-w-0 items-center gap-2">
             <TextInput
               className="w-[180px]"
@@ -180,7 +259,9 @@ export function SettingsPage({
         <SettingRow label="开机启动">
           <Switch
             checked={form.launchAtLogin}
-            onChange={(event) => set({ launchAtLogin: event.target.checked }, { immediate: true })}
+            onChange={(event) =>
+              set({ launchAtLogin: event.target.checked }, { immediate: true })
+            }
           />
         </SettingRow>
         <SettingRow label="主题">
@@ -196,14 +277,47 @@ export function SettingsPage({
       </SettingSection>
 
       <SettingSection icon={<Wrench size={20} />} title="维护">
-        <SettingRow label="配置备份" detail={snapshot.state.lastBackupPath ? compactPath(snapshot.state.lastBackupPath, 44) : "暂无备份"}>
+        <SettingRow label="当前版本" detail="应用版本号">
+          <div className="text-[13px] font-semibold text-stone-700">v{appVersion}</div>
+        </SettingRow>
+        <SettingRow
+          label="配置备份"
+          detail={
+            snapshot.state.lastBackupPath
+              ? compactPath(snapshot.state.lastBackupPath, 44)
+              : "暂无备份"
+          }
+        >
           <Button
             disabled={busy || !snapshot.state.lastBackupPath}
-            onClick={() => run(api.restoreBackup, "已恢复备份。")}
+            onClick={() => run(api.restoreBackup, "已恢复配置备份")}
           >
             <FolderCog size={16} />
             恢复
           </Button>
+        </SettingRow>
+        <SettingRow label="检查更新" detail={updateDetail}>
+          <div className="flex items-center gap-2">
+            <Button
+              disabled={busy || updateState === "checking"}
+              onClick={checkForUpdates}
+            >
+              {updateState === "checking" ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : (
+                <Download size={16} />
+              )}
+              {updateState === "checking" ? "检查中" : "检查更新"}
+            </Button>
+            <Button
+              disabled={!updateInfo?.hasUpdate}
+              onClick={openReleasePage}
+              title={updateInfo?.hasUpdate ? "打开新版本下载页" : "只有发现新版本后才需要下载"}
+            >
+              <ExternalLink size={16} />
+              下载新版
+            </Button>
+          </div>
         </SettingRow>
       </SettingSection>
     </Page>

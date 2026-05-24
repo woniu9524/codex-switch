@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/api": "2.8.0",
     "@tauri-apps/plugin-dialog": "^2.4.1",
     "lucide-react": "^0.542.0",
     "react": "^18.2.0",
@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.0",
-    "@tauri-apps/cli": "^2.8.0",
+    "@tauri-apps/cli": "2.8.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
