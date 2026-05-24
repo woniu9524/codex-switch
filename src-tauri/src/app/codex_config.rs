@@ -1,5 +1,7 @@
 use super::codex_auth;
-use super::models::{Provider, RestorePoint, SWITCH_PROVIDER_ID};
+use super::models::{
+    ConfigLease, ConfigLeaseStatus, OriginalCodexConfig, Provider, SWITCH_PROVIDER_ID,
+};
 use super::store::{display_path, write_bytes_atomic, AppPaths};
 use anyhow::{anyhow, Context, Result};
 use std::fs;
@@ -7,32 +9,25 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use toml_edit::{value, DocumentMut, Item, Table};
 
-#[derive(Debug, Clone)]
-pub struct ConfigWriteOutcome {
-    pub backup_path: String,
-    pub restore_point: RestorePoint,
-    pub written_model: String,
-}
-
 pub fn config_path(codex_dir_override: Option<&str>) -> Result<PathBuf> {
     Ok(codex_auth::codex_dir(codex_dir_override)?.join("config.toml"))
 }
 
-pub fn write_proxy_config(
+pub fn prepare_config_lease(
     paths: &AppPaths,
-    codex_dir_override: Option<&str>,
+    codex_dir_override: Option<String>,
     proxy_port: u16,
     provider: &Provider,
-) -> Result<ConfigWriteOutcome> {
-    let path = config_path(codex_dir_override)?;
+) -> Result<ConfigLease> {
+    let path = config_path(codex_dir_override.as_deref())?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .with_context(|| format!("创建 Codex 配置目录失败: {}", parent.display()))?;
     }
 
     let raw = read_config_text(&path)?;
-    let mut doc = parse_doc(&raw)?;
-    let restore_point = RestorePoint {
+    let doc = parse_doc(&raw)?;
+    let original_config = OriginalCodexConfig {
         model_provider: doc
             .get("model_provider")
             .and_then(|item| item.as_str())
@@ -45,17 +40,37 @@ pub fn write_proxy_config(
             .get("openai_base_url")
             .and_then(|item| item.as_str())
             .map(ToString::to_string),
+        switch_provider_table: doc
+            .get("model_providers")
+            .and_then(|item| item.as_table())
+            .and_then(|table| table.get(SWITCH_PROVIDER_ID))
+            .and_then(|item| item.as_table())
+            .map(|table| table.to_string()),
     };
     let backup_path = backup_config(paths, &path, raw.as_bytes())?;
 
-    write_switch_provider(&mut doc, proxy_port, provider);
-
-    write_text_atomic(&path, &doc.to_string())?;
-    Ok(ConfigWriteOutcome {
+    Ok(ConfigLease {
+        codex_dir_override,
         backup_path: display_path(&backup_path),
-        restore_point,
-        written_model: provider.model.clone(),
+        original_config,
+        last_written_model: provider.model.clone(),
+        proxy_port,
+        status: ConfigLeaseStatus::Pending,
     })
+}
+
+pub fn apply_config_lease(lease: &ConfigLease, provider: &Provider) -> Result<()> {
+    let path = config_path(lease.codex_dir_override.as_deref())?;
+    let raw = read_config_text(&path)?;
+    let mut doc = parse_doc(&raw)?;
+    write_switch_provider(&mut doc, lease.proxy_port, provider);
+    write_text_atomic(&path, &doc.to_string())
+}
+
+pub fn mark_lease_applied(lease: &ConfigLease) -> ConfigLease {
+    let mut lease = lease.clone();
+    lease.status = ConfigLeaseStatus::Applied;
+    lease
 }
 
 pub fn update_codex_model(codex_dir_override: Option<&str>, model: &str) -> Result<()> {
@@ -66,23 +81,31 @@ pub fn update_codex_model(codex_dir_override: Option<&str>, model: &str) -> Resu
     write_text_atomic(&path, &doc.to_string())
 }
 
-pub fn remove_proxy_config(
-    codex_dir_override: Option<&str>,
-    restore_point: Option<RestorePoint>,
-    last_written_model: Option<&str>,
-) -> Result<()> {
-    let path = config_path(codex_dir_override)?;
+pub fn release_config_lease(lease: &ConfigLease) -> Result<()> {
+    let path = config_path(lease.codex_dir_override.as_deref())?;
     let Some(raw) = read_existing_config_text(&path)? else {
         return Ok(());
     };
     let mut doc = parse_doc(&raw)?;
 
-    restore_model_provider(&mut doc, restore_point.as_ref());
-    restore_model(&mut doc, restore_point.as_ref(), last_written_model);
-    restore_openai_base_url(&mut doc, restore_point.as_ref());
-    remove_switch_provider(&mut doc);
+    restore_model_provider(&mut doc, &lease.original_config);
+    restore_model(&mut doc, &lease.original_config, &lease.last_written_model);
+    restore_openai_base_url(&mut doc, &lease.original_config);
+    restore_switch_provider_table(&mut doc, &lease.original_config)?;
 
     write_text_atomic(&path, &doc.to_string())
+}
+
+pub fn cleanup_stale_switch_config(codex_dir_override: Option<&str>) -> Result<()> {
+    let path = config_path(codex_dir_override)?;
+    let Some(raw) = read_existing_config_text(&path)? else {
+        return Ok(());
+    };
+    let mut doc = parse_doc(&raw)?;
+    if remove_stale_switch_provider(&mut doc) {
+        write_text_atomic(&path, &doc.to_string())?;
+    }
+    Ok(())
 }
 
 pub fn restore_backup(codex_dir_override: Option<&str>, backup_path: &Path) -> Result<()> {
@@ -92,7 +115,7 @@ pub fn restore_backup(codex_dir_override: Option<&str>, backup_path: &Path) -> R
     write_bytes_atomic(&config_path, &bytes)
 }
 
-fn restore_model_provider(doc: &mut DocumentMut, restore_point: Option<&RestorePoint>) {
+fn restore_model_provider(doc: &mut DocumentMut, original: &OriginalCodexConfig) {
     let is_switch = doc
         .get("model_provider")
         .and_then(|item| item.as_str())
@@ -101,7 +124,7 @@ fn restore_model_provider(doc: &mut DocumentMut, restore_point: Option<&RestoreP
         return;
     }
 
-    match restore_point.and_then(|restore| restore.model_provider.as_ref()) {
+    match original.model_provider.as_ref() {
         Some(previous) => doc["model_provider"] = value(previous.as_str()),
         None => {
             doc.as_table_mut().remove("model_provider");
@@ -111,18 +134,18 @@ fn restore_model_provider(doc: &mut DocumentMut, restore_point: Option<&RestoreP
 
 fn restore_model(
     doc: &mut DocumentMut,
-    restore_point: Option<&RestorePoint>,
-    last_written_model: Option<&str>,
+    original: &OriginalCodexConfig,
+    last_written_model: &str,
 ) {
     let current_model = doc
         .get("model")
         .and_then(|item| item.as_str())
         .map(ToString::to_string);
-    if current_model.as_deref() != last_written_model {
+    if current_model.as_deref() != Some(last_written_model) {
         return;
     }
 
-    match restore_point.and_then(|restore| restore.model.as_ref()) {
+    match original.model.as_ref() {
         Some(previous) => doc["model"] = value(previous.as_str()),
         None => {
             doc.as_table_mut().remove("model");
@@ -130,21 +153,18 @@ fn restore_model(
     }
 }
 
-fn restore_openai_base_url(doc: &mut DocumentMut, restore_point: Option<&RestorePoint>) {
+fn restore_openai_base_url(doc: &mut DocumentMut, original: &OriginalCodexConfig) {
     let current = doc
         .get("openai_base_url")
         .and_then(|item| item.as_str())
         .map(ToString::to_string);
     let should_restore = current.as_deref().is_some_and(is_local_proxy_url)
-        || current.is_none()
-            && restore_point
-                .and_then(|restore| restore.openai_base_url.as_ref())
-                .is_some();
+        || current.is_none() && original.openai_base_url.is_some();
     if !should_restore {
         return;
     }
 
-    match restore_point.and_then(|restore| restore.openai_base_url.as_ref()) {
+    match original.openai_base_url.as_ref() {
         Some(previous) => doc["openai_base_url"] = value(previous.as_str()),
         None => {
             doc.as_table_mut().remove("openai_base_url");
@@ -175,14 +195,91 @@ fn write_switch_provider(doc: &mut DocumentMut, proxy_port: u16, provider: &Prov
     provider_table["supports_websockets"] = value(false);
 }
 
-fn remove_switch_provider(doc: &mut DocumentMut) {
+fn restore_switch_provider_table(
+    doc: &mut DocumentMut,
+    original: &OriginalCodexConfig,
+) -> Result<()> {
+    let should_restore_table = doc
+        .get("model_providers")
+        .and_then(|item| item.as_table())
+        .and_then(|table| table.get(SWITCH_PROVIDER_ID))
+        .and_then(|item| item.as_table())
+        .is_some_and(is_managed_switch_provider)
+        || doc
+            .get("model_provider")
+            .and_then(|item| item.as_str())
+            .is_some_and(|value| value == SWITCH_PROVIDER_ID);
+
+    if !should_restore_table {
+        return Ok(());
+    }
+
+    match original.switch_provider_table.as_ref() {
+        Some(table_text) => insert_switch_provider_table(doc, table_text)?,
+        None => remove_switch_provider_table(doc),
+    }
+    remove_empty_model_providers(doc);
+    Ok(())
+}
+
+fn insert_switch_provider_table(doc: &mut DocumentMut, table_text: &str) -> Result<()> {
+    if !doc.as_table().contains_key("model_providers") {
+        doc["model_providers"] = Item::Table(Table::new());
+    }
+    let wrapper = format!("[model_providers.{SWITCH_PROVIDER_ID}]\n{table_text}");
+    let parsed = parse_doc(&wrapper)?;
+    let table = parsed
+        .get("model_providers")
+        .and_then(|item| item.as_table())
+        .and_then(|table| table.get(SWITCH_PROVIDER_ID))
+        .and_then(|item| item.as_table())
+        .ok_or_else(|| anyhow!("stored codex-switch provider table is invalid"))?
+        .clone();
+    let model_providers = doc["model_providers"]
+        .as_table_mut()
+        .expect("model_providers is table");
+    model_providers.insert(SWITCH_PROVIDER_ID, Item::Table(table));
+    Ok(())
+}
+
+fn remove_switch_provider_table(doc: &mut DocumentMut) {
     if let Some(model_providers) = doc
         .get_mut("model_providers")
         .and_then(|item| item.as_table_mut())
     {
         model_providers.remove(SWITCH_PROVIDER_ID);
     }
-    remove_empty_model_providers(doc);
+}
+
+fn remove_stale_switch_provider(doc: &mut DocumentMut) -> bool {
+    let mut changed = false;
+    let is_switch = doc
+        .get("model_provider")
+        .and_then(|item| item.as_str())
+        .is_some_and(|value| value == SWITCH_PROVIDER_ID);
+    if is_switch {
+        doc.as_table_mut().remove("model_provider");
+        changed = true;
+    }
+
+    let has_switch_provider = doc
+        .get("model_providers")
+        .and_then(|item| item.as_table())
+        .and_then(|table| table.get(SWITCH_PROVIDER_ID))
+        .is_some();
+    if has_switch_provider {
+        remove_switch_provider_table(doc);
+        remove_empty_model_providers(doc);
+        changed = true;
+    }
+    changed
+}
+
+fn is_managed_switch_provider(table: &Table) -> bool {
+    table
+        .get("base_url")
+        .and_then(|item| item.as_str())
+        .is_some_and(is_local_proxy_url)
 }
 
 fn remove_empty_model_providers(doc: &mut DocumentMut) {
@@ -286,7 +383,7 @@ command = "node"
     }
 
     #[test]
-    fn remove_proxy_config_cleans_old_switch_provider_table() {
+    fn release_lease_cleans_old_switch_provider_table() {
         let mut doc = parse_doc(
             r#"model_provider = "codex-switch"
 model = "gpt-5.5"
@@ -301,22 +398,179 @@ trust_level = "trusted"
 "#,
         )
         .unwrap();
-        let restore = RestorePoint {
+        let original = OriginalCodexConfig {
             model_provider: None,
             model: Some("gpt-5-codex".to_string()),
             openai_base_url: None,
+            switch_provider_table: None,
         };
 
-        restore_model_provider(&mut doc, Some(&restore));
-        restore_model(&mut doc, Some(&restore), Some("gpt-5.5"));
-        restore_openai_base_url(&mut doc, Some(&restore));
-        remove_switch_provider(&mut doc);
+        restore_model_provider(&mut doc, &original);
+        restore_model(&mut doc, &original, "gpt-5.5");
+        restore_openai_base_url(&mut doc, &original);
+        restore_switch_provider_table(&mut doc, &original).unwrap();
         let text = doc.to_string();
 
         assert!(!text.contains("codex-switch"));
         assert!(text.contains(r#"model = "gpt-5-codex""#));
         assert!(!text.contains("openai_base_url"));
         assert!(text.contains("[projects.'d:\\codes\\demo']"));
+    }
+
+    #[test]
+    fn stale_cleanup_removes_switch_without_lease() {
+        let mut doc = parse_doc(
+            r#"model_provider = "codex-switch"
+model = "gpt-5.5"
+
+[model_providers.codex-switch]
+name = "codex-switch"
+base_url = "http://127.0.0.1:8787/v1"
+"#,
+        )
+        .unwrap();
+
+        assert!(remove_stale_switch_provider(&mut doc));
+        let text = doc.to_string();
+
+        assert!(!text.contains(r#"model_provider = "codex-switch""#));
+        assert!(!text.contains("[model_providers.codex-switch]"));
+        assert!(text.contains(r#"model = "gpt-5.5""#));
+    }
+
+    #[test]
+    fn release_lease_restores_existing_switch_provider_table() {
+        let mut doc = parse_doc(
+            r#"model_provider = "codex-switch"
+model = "gpt-5.5"
+
+[model_providers.codex-switch]
+name = "codex-switch"
+base_url = "http://127.0.0.1:8787/v1"
+"#,
+        )
+        .unwrap();
+        let original = OriginalCodexConfig {
+            model_provider: Some("openai".to_string()),
+            model: Some("gpt-5-codex".to_string()),
+            openai_base_url: Some("https://api.openai.com/v1".to_string()),
+            switch_provider_table: Some(
+                r#"name = "User Provider"
+base_url = "https://example.test/v1"
+wire_api = "responses"
+"#
+                .to_string(),
+            ),
+        };
+
+        restore_model_provider(&mut doc, &original);
+        restore_model(&mut doc, &original, "gpt-5.5");
+        restore_openai_base_url(&mut doc, &original);
+        restore_switch_provider_table(&mut doc, &original).unwrap();
+        let text = doc.to_string();
+
+        assert!(text.contains(r#"model_provider = "openai""#));
+        assert!(text.contains(r#"model = "gpt-5-codex""#));
+        assert!(text.contains(r#"openai_base_url = "https://api.openai.com/v1""#));
+        assert!(text.contains(r#"name = "User Provider""#));
+        assert!(text.contains(r#"base_url = "https://example.test/v1""#));
+    }
+
+    #[test]
+    fn lease_roundtrip_restores_original_provider_file() {
+        let temp = tempfile::tempdir().unwrap();
+        let codex_dir = temp.path().join("codex");
+        std::fs::create_dir_all(&codex_dir).unwrap();
+        std::fs::write(
+            codex_dir.join("config.toml"),
+            r#"model_provider = "openai"
+model = "gpt-5-codex"
+
+[projects.'d:\codes\demo']
+trust_level = "trusted"
+"#,
+        )
+        .unwrap();
+        let paths = test_paths(temp.path());
+        let lease = prepare_config_lease(
+            &paths,
+            Some(display_path(&codex_dir)),
+            8787,
+            &test_provider(),
+        )
+        .unwrap();
+
+        apply_config_lease(&lease, &test_provider()).unwrap();
+        let switched = std::fs::read_to_string(codex_dir.join("config.toml")).unwrap();
+        assert!(switched.contains(r#"model_provider = "codex-switch""#));
+
+        release_config_lease(&lease).unwrap();
+        let restored = std::fs::read_to_string(codex_dir.join("config.toml")).unwrap();
+        assert!(restored.contains(r#"model_provider = "openai""#));
+        assert!(restored.contains(r#"model = "gpt-5-codex""#));
+        assert!(!restored.contains("[model_providers.codex-switch]"));
+        assert!(restored.contains("[projects.'d:\\codes\\demo']"));
+    }
+
+    #[test]
+    fn lease_roundtrip_removes_missing_original_provider_file() {
+        let temp = tempfile::tempdir().unwrap();
+        let codex_dir = temp.path().join("codex");
+        std::fs::create_dir_all(&codex_dir).unwrap();
+        std::fs::write(codex_dir.join("config.toml"), "[mcp_servers.demo]\ncommand = \"node\"\n")
+            .unwrap();
+        let paths = test_paths(temp.path());
+        let lease = prepare_config_lease(
+            &paths,
+            Some(display_path(&codex_dir)),
+            8787,
+            &test_provider(),
+        )
+        .unwrap();
+
+        apply_config_lease(&lease, &test_provider()).unwrap();
+        release_config_lease(&lease).unwrap();
+        let restored = std::fs::read_to_string(codex_dir.join("config.toml")).unwrap();
+
+        assert!(!restored.contains("model_provider"));
+        assert!(!restored.contains("[model_providers.codex-switch]"));
+        assert!(restored.contains("[mcp_servers.demo]"));
+    }
+
+    #[test]
+    fn stale_cleanup_file_removes_dead_switch_provider() {
+        let temp = tempfile::tempdir().unwrap();
+        let codex_dir = temp.path().join("codex");
+        std::fs::create_dir_all(&codex_dir).unwrap();
+        std::fs::write(
+            codex_dir.join("config.toml"),
+            r#"model_provider = "codex-switch"
+model = "gpt-5.5"
+
+[model_providers.codex-switch]
+name = "codex-switch"
+base_url = "http://127.0.0.1:8787/v1"
+"#,
+        )
+        .unwrap();
+
+        cleanup_stale_switch_config(Some(&display_path(&codex_dir))).unwrap();
+        let cleaned = std::fs::read_to_string(codex_dir.join("config.toml")).unwrap();
+
+        assert!(!cleaned.contains(r#"model_provider = "codex-switch""#));
+        assert!(!cleaned.contains("[model_providers.codex-switch]"));
+        assert!(cleaned.contains(r#"model = "gpt-5.5""#));
+    }
+
+    fn test_paths(root: &Path) -> AppPaths {
+        let app_home = root.join("app");
+        AppPaths {
+            state_file: app_home.join("state").join("state.json"),
+            backup_dir: app_home.join("backups"),
+            log_dir: app_home.join("logs"),
+            provider_icon_dir: app_home.join("icons").join("providers"),
+            app_home,
+        }
     }
 
     fn test_provider() -> Provider {

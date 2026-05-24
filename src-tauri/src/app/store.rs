@@ -1,4 +1,6 @@
-use super::models::{KeyStatus, Provider, RequestEvent, RuntimePaths, StoredState, STATE_VERSION};
+use super::models::{
+    KeyStatus, Provider, RequestEvent, RuntimePaths, StoredState, STATE_VERSION, SWITCH_PROVIDER_ID,
+};
 use super::secrets;
 use anyhow::{anyhow, Context, Result};
 use std::fs;
@@ -154,6 +156,16 @@ fn read_state_file(path: &Path) -> Result<StoredState> {
 }
 
 pub fn normalize_state(state: &mut StoredState) {
+    let polluted_restore_point = state
+        .deprecated_restore_point
+        .as_ref()
+        .and_then(|restore| restore.model_provider.as_deref())
+        .is_some_and(|provider| provider == SWITCH_PROVIDER_ID);
+    if polluted_restore_point {
+        state.config_lease = None;
+        state.last_written_model = None;
+    }
+    state.deprecated_restore_point = None;
     state.version = STATE_VERSION;
 
     state
@@ -220,7 +232,7 @@ pub fn display_path(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::normalize_state;
-    use crate::app::models::{KeyStatus, Provider, StoredState};
+    use crate::app::models::{KeyStatus, Provider, RestorePoint, StoredState};
 
     #[test]
     fn normalize_keeps_user_providers_only() {
@@ -260,6 +272,25 @@ mod tests {
         assert_eq!(state.active_provider_id, Some("alpha".to_string()));
         assert_eq!(state.providers[0].id, "alpha");
         assert_eq!(state.providers[1].id, "zeta");
+    }
+
+    #[test]
+    fn normalize_drops_polluted_legacy_restore_point() {
+        let mut state = StoredState {
+            last_written_model: Some("gpt-5.5".to_string()),
+            deprecated_restore_point: Some(RestorePoint {
+                model_provider: Some("codex-switch".to_string()),
+                model: Some("gpt-5-codex".to_string()),
+                openai_base_url: None,
+            }),
+            ..StoredState::default()
+        };
+
+        normalize_state(&mut state);
+
+        assert!(state.deprecated_restore_point.is_none());
+        assert!(state.config_lease.is_none());
+        assert!(state.last_written_model.is_none());
     }
 
     fn test_provider(name: &str) -> Provider {

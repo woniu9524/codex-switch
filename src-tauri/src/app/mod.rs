@@ -46,6 +46,10 @@ impl RuntimeState {
     }
 
     pub async fn start_proxy_if_enabled(self: &Arc<Self>) {
+        if let Err(error) = self.recover_config_on_startup() {
+            log::error!("failed to recover Codex config on startup: {error}");
+        }
+
         let enabled = self.store.with_data(|state| state.enabled);
         if enabled {
             if let Err(error) = self.enable_current_provider(false).await {
@@ -60,7 +64,7 @@ impl RuntimeState {
             return Ok(());
         }
 
-        if let Err(error) = self.restore_config_if_enabled() {
+        if let Err(error) = self.release_config_lease() {
             self.exiting.store(false, Ordering::SeqCst);
             return Err(error);
         }
@@ -81,7 +85,15 @@ impl RuntimeState {
         let codex_dir_override = self
             .store
             .with_data(|state| state.codex_dir_override.clone());
-        codex_config::update_codex_model(codex_dir_override.as_deref(), model)
+        codex_config::update_codex_model(codex_dir_override.as_deref(), model)?;
+        self.store.update(|state| {
+            state.last_written_model = Some(model.to_string());
+            if let Some(lease) = state.config_lease.as_mut() {
+                lease.last_written_model = model.to_string();
+            }
+            Ok(())
+        })?;
+        Ok(())
     }
 
     async fn enable_current_provider(&self, mark_enabled: bool) -> Result<()> {
@@ -95,45 +107,17 @@ impl RuntimeState {
             .ok_or_else(|| anyhow!("请先添加并选择一个供应商"))?;
         ensure_provider_can_route(&active).map_err(|error| anyhow!(error))?;
 
+        self.release_config_lease()?;
         let port = self.start_proxy().await?;
         if self.exiting.load(Ordering::SeqCst) {
             self.stop_proxy();
             return Ok(());
         }
 
-        let _guard = self.config_guard.lock().expect("config guard poisoned");
-        if self.exiting.load(Ordering::SeqCst) {
+        if let Err(error) = self.apply_proxy_config_for_provider(port, &active, mark_enabled) {
             self.stop_proxy();
-            return Ok(());
+            return Err(error);
         }
-
-        let codex_dir_override = self
-            .store
-            .with_data(|state| state.codex_dir_override.clone());
-        let outcome = match codex_config::write_proxy_config(
-            self.store.paths(),
-            codex_dir_override.as_deref(),
-            port,
-            &active,
-        ) {
-            Ok(outcome) => outcome,
-            Err(error) => {
-                self.stop_proxy();
-                return Err(error);
-            }
-        };
-
-        self.store.update(|state| {
-            if mark_enabled {
-                state.enabled = true;
-            }
-            state.active_provider_id = Some(active.id.clone());
-            state.proxy_port = port;
-            state.last_backup_path = Some(outcome.backup_path);
-            state.restore_point = Some(outcome.restore_point);
-            state.last_written_model = Some(outcome.written_model);
-            Ok(())
-        })?;
         Ok(())
     }
 
@@ -171,26 +155,75 @@ impl RuntimeState {
         self.proxy.lock().expect("proxy poisoned").is_some()
     }
 
-    fn restore_config_if_enabled(&self) -> Result<()> {
+    fn recover_config_on_startup(&self) -> Result<()> {
+        self.release_config_lease()
+    }
+
+    fn release_config_lease(&self) -> Result<()> {
         let _guard = self.config_guard.lock().expect("config guard poisoned");
-        let (enabled, codex_dir_override, restore_point, last_written_model) =
-            self.store.with_data(|state| {
-                (
-                    state.enabled,
-                    state.codex_dir_override.clone(),
-                    state.restore_point.clone(),
-                    state.last_written_model.clone(),
-                )
-            });
-        if !enabled {
+        let (lease, codex_dir_override) = self
+            .store
+            .with_data(|state| (state.config_lease.clone(), state.codex_dir_override.clone()));
+
+        if let Some(lease) = lease {
+            codex_config::release_config_lease(&lease)?;
+            self.store.update(|state| {
+                state.config_lease = None;
+                state.last_written_model = None;
+                Ok(())
+            })?;
+        } else {
+            codex_config::cleanup_stale_switch_config(codex_dir_override.as_deref())?;
+        }
+        Ok(())
+    }
+
+    fn cleanup_stale_switch_config_for(&self, codex_dir_override: Option<String>) -> Result<()> {
+        let _guard = self.config_guard.lock().expect("config guard poisoned");
+        codex_config::cleanup_stale_switch_config(codex_dir_override.as_deref())
+    }
+
+    fn apply_proxy_config_for_provider(
+        &self,
+        port: u16,
+        active: &Provider,
+        mark_enabled: bool,
+    ) -> Result<()> {
+        let _guard = self.config_guard.lock().expect("config guard poisoned");
+        if self.exiting.load(Ordering::SeqCst) {
             return Ok(());
         }
 
-        codex_config::remove_proxy_config(
-            codex_dir_override.as_deref(),
-            restore_point,
-            last_written_model.as_deref(),
-        )
+        let codex_dir_override = self
+            .store
+            .with_data(|state| state.codex_dir_override.clone());
+        codex_config::cleanup_stale_switch_config(codex_dir_override.as_deref())?;
+        let lease = codex_config::prepare_config_lease(
+            self.store.paths(),
+            codex_dir_override,
+            port,
+            active,
+        )?;
+        self.store.update(|state| {
+            state.config_lease = Some(lease.clone());
+            state.last_backup_path = Some(lease.backup_path.clone());
+            state.last_written_model = Some(lease.last_written_model.clone());
+            Ok(())
+        })?;
+        codex_config::apply_config_lease(&lease, active)?;
+        let lease = codex_config::mark_lease_applied(&lease);
+        self.store.update(|state| {
+            if mark_enabled {
+                state.enabled = true;
+            }
+            state.active_provider_id = Some(active.id.clone());
+            state.proxy_port = port;
+            state.last_backup_path = Some(lease.backup_path.clone());
+            state.last_written_model = Some(lease.last_written_model.clone());
+            state.config_lease = Some(lease);
+            Ok(())
+        })?;
+        Ok(())
     }
 }
 
@@ -265,12 +298,14 @@ pub async fn enable(runtime: State<'_, Arc<RuntimeState>>) -> Result<Snapshot, S
 
 #[tauri::command]
 pub async fn disable(runtime: State<'_, Arc<RuntimeState>>) -> Result<Snapshot, String> {
-    runtime.restore_config_if_enabled().map_err(to_user_error)?;
+    runtime.release_config_lease().map_err(to_user_error)?;
     runtime.stop_proxy();
     runtime
         .store
         .update(|state| {
             state.enabled = false;
+            state.config_lease = None;
+            state.last_written_model = None;
             Ok(())
         })
         .map_err(to_user_error)?;
@@ -457,16 +492,12 @@ pub async fn update_settings(
         was_enabled,
         previous_port,
         previous_codex_dir_override,
-        previous_restore_point,
-        previous_last_written_model,
         previous_launch_at_login,
     ) = runtime.store.with_data(|state| {
         (
             state.enabled,
             state.proxy_port,
             state.codex_dir_override.clone(),
-            state.restore_point.clone(),
-            state.last_written_model.clone(),
             state.launch_at_login,
         )
     });
@@ -501,16 +532,11 @@ pub async fn update_settings(
             || previous_codex_dir_override != next_codex_dir_override);
     if needs_proxy_config_refresh {
         let changed_codex_dir = previous_codex_dir_override != next_codex_dir_override;
-        {
-            let _guard = runtime.config_guard.lock().expect("config guard poisoned");
-            if changed_codex_dir {
-                codex_config::remove_proxy_config(
-                    previous_codex_dir_override.as_deref(),
-                    previous_restore_point,
-                    previous_last_written_model.as_deref(),
-                )
+        runtime.release_config_lease().map_err(to_user_error)?;
+        if changed_codex_dir {
+            runtime
+                .cleanup_stale_switch_config_for(previous_codex_dir_override)
                 .map_err(to_user_error)?;
-            }
         }
 
         runtime.stop_proxy();
@@ -519,30 +545,8 @@ pub async fn update_settings(
             .store
             .active_provider()
             .ok_or_else(|| "当前没有可用供应商，无法刷新代理配置".to_string())?;
-        let codex_dir_override = runtime
-            .store
-            .with_data(|state| state.codex_dir_override.clone());
-        let outcome = {
-            let _guard = runtime.config_guard.lock().expect("config guard poisoned");
-            codex_config::write_proxy_config(
-                runtime.store.paths(),
-                codex_dir_override.as_deref(),
-                port,
-                &active,
-            )
-        }
-        .map_err(to_user_error)?;
         runtime
-            .store
-            .update(|state| {
-                state.proxy_port = port;
-                state.last_backup_path = Some(outcome.backup_path);
-                if changed_codex_dir || state.restore_point.is_none() {
-                    state.restore_point = Some(outcome.restore_point);
-                }
-                state.last_written_model = Some(outcome.written_model);
-                Ok(())
-            })
+            .apply_proxy_config_for_provider(port, &active, false)
             .map_err(to_user_error)?;
     }
 

@@ -17,10 +17,22 @@ export interface Provider {
   keyStatus: KeyStatus;
 }
 
-export interface RestorePoint {
+export type ConfigLeaseStatus = "pending" | "applied";
+
+export interface OriginalCodexConfig {
   modelProvider?: string | null;
   model?: string | null;
   openaiBaseUrl?: string | null;
+  switchProviderTable?: string | null;
+}
+
+export interface ConfigLease {
+  codexDirOverride?: string | null;
+  backupPath: string;
+  originalConfig: OriginalCodexConfig;
+  lastWrittenModel: string;
+  proxyPort: number;
+  status: ConfigLeaseStatus;
 }
 
 export interface StoredState {
@@ -32,8 +44,8 @@ export interface StoredState {
   launchAtLogin: boolean;
   themeMode: ThemeMode;
   lastBackupPath?: string | null;
+  configLease?: ConfigLease | null;
   lastWrittenModel?: string | null;
-  restorePoint?: RestorePoint | null;
   providers: Provider[];
 }
 

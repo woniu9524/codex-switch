@@ -14,6 +14,16 @@
 - 不把 Codex 降级成只能直连第三方 API 的工作流
 - 在本地代理层完成供应商切换、模型转发和配置恢复
 
+## 效果预览
+
+### 软件截图
+
+![codex-switch 软件截图](./docs/images/codex-switch-screenshot.png)
+
+### 启用效果
+
+![codex-switch 启用效果](./docs/images/codex-switch-enabled-effect.png)
+
 ## 要解决的问题
 
 - `cc-switch` 在代理 Codex 的场景下，难以兼顾正常账号登录能力与第三方供应商切换

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 pub const SWITCH_PROVIDER_ID: &str = "codex-switch";
 pub const DEFAULT_MODEL: &str = "gpt-5.5";
 pub const DEFAULT_PROXY_PORT: u16 = 8787;
-pub const STATE_VERSION: u32 = 1;
+pub const STATE_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,6 +58,33 @@ pub struct RestorePoint {
     pub openai_base_url: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ConfigLeaseStatus {
+    Pending,
+    Applied,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OriginalCodexConfig {
+    pub model_provider: Option<String>,
+    pub model: Option<String>,
+    pub openai_base_url: Option<String>,
+    pub switch_provider_table: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigLease {
+    pub codex_dir_override: Option<String>,
+    pub backup_path: String,
+    pub original_config: OriginalCodexConfig,
+    pub last_written_model: String,
+    pub proxy_port: u16,
+    pub status: ConfigLeaseStatus,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StoredState {
@@ -70,8 +97,10 @@ pub struct StoredState {
     #[serde(default)]
     pub theme_mode: ThemeMode,
     pub last_backup_path: Option<String>,
+    pub config_lease: Option<ConfigLease>,
     pub last_written_model: Option<String>,
-    pub restore_point: Option<RestorePoint>,
+    #[serde(default, rename = "restorePoint", skip_serializing)]
+    pub deprecated_restore_point: Option<RestorePoint>,
     pub providers: Vec<Provider>,
 }
 
@@ -86,8 +115,9 @@ impl Default for StoredState {
             launch_at_login: false,
             theme_mode: ThemeMode::Light,
             last_backup_path: None,
+            config_lease: None,
             last_written_model: None,
-            restore_point: None,
+            deprecated_restore_point: None,
             providers: Vec::new(),
         }
     }
