@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 pub const SWITCH_PROVIDER_ID: &str = "codex-switch";
 pub const DEFAULT_MODEL: &str = "gpt-5.5";
 pub const DEFAULT_PROXY_PORT: u16 = 8787;
-pub const STATE_VERSION: u32 = 2;
+pub const STATE_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -47,6 +47,22 @@ pub enum ThemeMode {
 impl Default for ThemeMode {
     fn default() -> Self {
         Self::Light
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum LanguageMode {
+    #[serde(rename = "system")]
+    System,
+    #[serde(rename = "zh-CN")]
+    ZhCn,
+    #[serde(rename = "en-US")]
+    EnUs,
+}
+
+impl Default for LanguageMode {
+    fn default() -> Self {
+        Self::System
     }
 }
 
@@ -96,6 +112,8 @@ pub struct StoredState {
     pub launch_at_login: bool,
     #[serde(default)]
     pub theme_mode: ThemeMode,
+    #[serde(default)]
+    pub language_mode: LanguageMode,
     pub last_backup_path: Option<String>,
     pub config_lease: Option<ConfigLease>,
     pub last_written_model: Option<String>,
@@ -114,6 +132,7 @@ impl Default for StoredState {
             codex_dir_override: None,
             launch_at_login: false,
             theme_mode: ThemeMode::Light,
+            language_mode: LanguageMode::System,
             last_backup_path: None,
             config_lease: None,
             last_written_model: None,
@@ -199,6 +218,7 @@ pub struct SettingsInput {
     pub codex_dir_override: Option<String>,
     pub launch_at_login: bool,
     pub theme_mode: ThemeMode,
+    pub language_mode: LanguageMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

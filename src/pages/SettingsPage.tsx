@@ -16,7 +16,8 @@ import { Button, SegmentedControl, Switch, TextInput } from "../components/ui";
 import { SettingRow, SettingSection } from "../features/settings/SettingSection";
 import { api } from "../lib/api";
 import { compactPath } from "../lib/format";
-import type { SettingsInput, Snapshot, ThemeMode, UpdateInfo } from "../lib/types";
+import type { LanguageMode, SettingsInput, Snapshot, ThemeMode, UpdateInfo } from "../lib/types";
+import { useI18n } from "../i18n";
 
 export function SettingsPage({
   snapshot,
@@ -34,13 +35,16 @@ export function SettingsPage({
     codexDirOverride: snapshot.state.codexDirOverride ?? "",
     launchAtLogin: snapshot.state.launchAtLogin,
     themeMode: snapshot.state.themeMode,
+    languageMode: snapshot.state.languageMode,
   });
   const [saveState, setSaveState] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [updateState, setUpdateState] = React.useState<"idle" | "checking" | "error">("idle");
   const [updateMessage, setUpdateMessage] = React.useState<string | null>(null);
   const [updateInfo, setUpdateInfo] = React.useState<UpdateInfo | null>(null);
-  const [appVersion, setAppVersion] = React.useState("读取中");
+  const { t } = useI18n();
+  const [appVersion, setAppVersion] = React.useState<string | null>(null);
+  const [appVersionFailed, setAppVersionFailed] = React.useState(false);
   const saveTimerRef = React.useRef<number | null>(null);
   const formRef = React.useRef<SettingsInput>(form);
 
@@ -50,6 +54,7 @@ export function SettingsPage({
       codexDirOverride: snapshot.state.codexDirOverride ?? "",
       launchAtLogin: snapshot.state.launchAtLogin,
       themeMode: snapshot.state.themeMode,
+      languageMode: snapshot.state.languageMode,
     };
     setForm(next);
     formRef.current = next;
@@ -58,6 +63,7 @@ export function SettingsPage({
     snapshot.state.codexDirOverride,
     snapshot.state.launchAtLogin,
     snapshot.state.themeMode,
+    snapshot.state.languageMode,
   ]);
 
   React.useEffect(() => {
@@ -67,11 +73,12 @@ export function SettingsPage({
       .then((version) => {
         if (!cancelled) {
           setAppVersion(version);
+          setAppVersionFailed(false);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setAppVersion("未知");
+          setAppVersionFailed(true);
         }
       });
 
@@ -88,7 +95,7 @@ export function SettingsPage({
     async (input: SettingsInput) => {
       if (input.proxyPort <= 0 || !Number.isFinite(input.proxyPort)) {
         setSaveState("error");
-        setSaveError("端口必须大于 0");
+        setSaveError(t("settings.portRequired"));
         return null;
       }
 
@@ -101,6 +108,7 @@ export function SettingsPage({
           codexDirOverride: next.state.codexDirOverride ?? "",
           launchAtLogin: next.state.launchAtLogin,
           themeMode: next.state.themeMode,
+          languageMode: next.state.languageMode,
         };
         setSaveState("saved");
         window.setTimeout(() => setSaveState("idle"), 1300);
@@ -108,11 +116,11 @@ export function SettingsPage({
       }
 
       setSaveState("error");
-      setSaveError("保存失败，请检查输入");
+      setSaveError(t("settings.saveFailedDetail"));
       onPreviewTheme(snapshot.state.themeMode);
       return null;
     },
-    [onPreviewTheme, run, snapshot.state.themeMode],
+    [onPreviewTheme, run, snapshot.state.themeMode, t],
   );
 
   const scheduleSave = React.useCallback(
@@ -192,27 +200,28 @@ export function SettingsPage({
       window.open(updateInfo.releaseUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
       setUpdateState("error");
-      setUpdateMessage(`打开下载页失败：${String(error)}`);
+      setUpdateMessage(t("settings.openDownloadFailed", { error: String(error) }));
     }
   };
 
-  const updateDetail = updateMessage ?? "手动检查 GitHub Release 最新版本，并与当前版本比较";
+  const displayedAppVersion = appVersion ?? (appVersionFailed ? t("app.unknown") : t("app.loading"));
+  const updateDetail = updateMessage ?? t("settings.updateDetail");
 
   return (
     <Page
-      title="设置"
+      title={t("settings.title")}
       actions={
         <div className="min-w-[96px] text-right text-[12px] font-semibold text-stone-500">
           {saveState === "saving" && (
             <span className="inline-flex items-center gap-1 text-stone-500">
               <Loader2 className="animate-spin" size={13} />
-              保存中
+              {t("settings.saving")}
             </span>
           )}
           {saveState === "saved" && (
             <span className="inline-flex items-center gap-1 text-emerald-800">
               <CheckCircle2 size={13} />
-              已保存
+              {t("settings.saved")}
             </span>
           )}
           {saveState === "error" && (
@@ -220,14 +229,14 @@ export function SettingsPage({
               className="inline-block max-w-[140px] truncate text-red-600"
               title={saveError ?? undefined}
             >
-              {saveError ?? "保存失败"}
+              {saveError ?? t("settings.saveFailed")}
             </span>
           )}
         </div>
       }
     >
-      <SettingSection icon={<Globe2 size={20} />} title="代理">
-        <SettingRow label="端口">
+      <SettingSection icon={<Globe2 size={20} />} title={t("settings.proxy")}>
+        <SettingRow label={t("settings.port")}>
           <TextInput
             className="w-[132px]"
             type="number"
@@ -237,8 +246,8 @@ export function SettingsPage({
           />
         </SettingRow>
         <SettingRow
-          label="Codex 目录"
-          detail={`配置路径 ${compactPath(snapshot.codex.configPath, 42)}`}
+          label={t("settings.codexDirectory")}
+          detail={t("settings.configPath", { path: compactPath(snapshot.codex.configPath, 42) })}
         >
           <div className="flex min-w-0 items-center gap-2">
             <TextInput
@@ -248,15 +257,15 @@ export function SettingsPage({
               onBlur={flushSave}
               placeholder={snapshot.codex.codexDir}
             />
-            <Button type="button" onClick={pickCodexDir} title="选择文件夹">
+            <Button type="button" onClick={pickCodexDir} title={t("settings.chooseFolder")}>
               <FolderCog size={16} />
             </Button>
           </div>
         </SettingRow>
       </SettingSection>
 
-      <SettingSection icon={<Settings size={20} />} title="偏好">
-        <SettingRow label="开机启动">
+      <SettingSection icon={<Settings size={20} />} title={t("settings.preferences")}>
+        <SettingRow label={t("settings.launchAtLogin")}>
           <Switch
             checked={form.launchAtLogin}
             onChange={(event) =>
@@ -264,39 +273,50 @@ export function SettingsPage({
             }
           />
         </SettingRow>
-        <SettingRow label="主题">
+        <SettingRow label={t("settings.theme")}>
           <SegmentedControl
             value={form.themeMode}
             options={[
-              { label: "浅色", value: "light" },
-              { label: "深色", value: "dark" },
+              { label: t("settings.themeLight"), value: "light" },
+              { label: t("settings.themeDark"), value: "dark" },
             ]}
             onChange={(themeMode) => set({ themeMode }, { immediate: true })}
           />
         </SettingRow>
+        <SettingRow label={t("settings.language")}>
+          <SegmentedControl<LanguageMode>
+            value={form.languageMode}
+            options={[
+              { label: t("settings.languageSystem"), value: "system" },
+              { label: t("settings.languageChinese"), value: "zh-CN" },
+              { label: t("settings.languageEnglish"), value: "en-US" },
+            ]}
+            onChange={(languageMode) => set({ languageMode }, { immediate: true })}
+          />
+        </SettingRow>
       </SettingSection>
 
-      <SettingSection icon={<Wrench size={20} />} title="维护">
-        <SettingRow label="当前版本" detail="应用版本号">
-          <div className="text-[13px] font-semibold text-stone-700">v{appVersion}</div>
+      <SettingSection icon={<Wrench size={20} />} title={t("settings.maintenance")}>
+        <SettingRow label={t("settings.currentVersion")} detail={t("settings.appVersion")}>
+          <div className="text-[13px] font-semibold text-stone-700">v{displayedAppVersion}</div>
         </SettingRow>
         <SettingRow
-          label="配置备份"
+          label={t("settings.configBackup")}
           detail={
             snapshot.state.lastBackupPath
               ? compactPath(snapshot.state.lastBackupPath, 44)
-              : "暂无备份"
+              : t("settings.noBackup")
           }
         >
           <Button
             disabled={busy || !snapshot.state.lastBackupPath}
-            onClick={() => run(api.restoreBackup, "已恢复配置备份")}
+            onClick={() => run(api.restoreBackup, t("settings.restoredBackup"))}
           >
             <FolderCog size={16} />
-            恢复
+            {t("settings.restoreBackup")}
           </Button>
         </SettingRow>
-        <SettingRow label="检查更新" detail={updateDetail}>
+        <SettingRow label={t("settings.checkUpdates")} detail={updateDetail}>
           <div className="flex items-center gap-2">
             <Button
               disabled={busy || updateState === "checking"}
@@ -307,15 +327,15 @@ export function SettingsPage({
               ) : (
                 <Download size={16} />
               )}
-              {updateState === "checking" ? "检查中" : "检查更新"}
+              {updateState === "checking" ? t("settings.checking") : t("settings.checkUpdates")}
             </Button>
             <Button
               disabled={!updateInfo?.hasUpdate}
               onClick={openReleasePage}
-              title={updateInfo?.hasUpdate ? "打开新版本下载页" : "只有发现新版本后才需要下载"}
+              title={updateInfo?.hasUpdate ? t("settings.openReleasePage") : t("settings.downloadNeedsUpdate")}
             >
               <ExternalLink size={16} />
-              下载新版
+              {t("settings.downloadNew")}
             </Button>
           </div>
         </SettingRow>

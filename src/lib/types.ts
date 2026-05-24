@@ -1,6 +1,8 @@
 export type KeyStatus = "present" | "missing";
 export type LoginMode = "api_key" | "chat_gpt" | "mixed" | "unknown";
 export type ThemeMode = "light" | "dark";
+export type Locale = "zh-CN" | "en-US";
+export type LanguageMode = "system" | Locale;
 
 export interface Provider {
   id: string;
@@ -43,6 +45,7 @@ export interface StoredState {
   codexDirOverride?: string | null;
   launchAtLogin: boolean;
   themeMode: ThemeMode;
+  languageMode: LanguageMode;
   lastBackupPath?: string | null;
   configLease?: ConfigLease | null;
   lastWrittenModel?: string | null;
@@ -103,6 +106,7 @@ export interface SettingsInput {
   codexDirOverride?: string | null;
   launchAtLogin: boolean;
   themeMode: ThemeMode;
+  languageMode: LanguageMode;
 }
 
 export interface ImportPreview {

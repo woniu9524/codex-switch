@@ -2,6 +2,9 @@ import React from "react";
 import { ChevronDown, Download, Loader2 } from "lucide-react";
 import { commonModelOptions } from "./constants";
 import { cx } from "../../lib/ui";
+import { useI18n } from "../../i18n";
+
+export type ModelStatusTone = "success" | "warning";
 
 export function ModelField({
   label,
@@ -9,6 +12,7 @@ export function ModelField({
   options,
   loading,
   status,
+  statusTone = "success",
   onChange,
   onRefresh,
 }: {
@@ -17,10 +21,12 @@ export function ModelField({
   options: string[];
   loading: boolean;
   status: string | null;
+  statusTone?: ModelStatusTone;
   onChange: (value: string) => void;
   onRefresh?: () => void;
 }) {
   const [custom, setCustom] = React.useState(false);
+  const { t } = useI18n();
   const baseChoices = React.useMemo(
     () => Array.from(new Set([...options, ...commonModelOptions].filter(Boolean))),
     [options],
@@ -49,7 +55,7 @@ export function ModelField({
             }}
           >
             {loading ? <Loader2 className="animate-spin" size={13} /> : <Download size={13} />}
-            拉取
+            {t("providerForm.fetchModels")}
           </button>
         )}
       </span>
@@ -71,7 +77,7 @@ export function ModelField({
               {model}
             </option>
           ))}
-          <option value="__custom__">自定义模型...</option>
+          <option value="__custom__">{t("providerForm.customModel")}</option>
         </select>
         <ChevronDown
           className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-stone-500"
@@ -83,14 +89,14 @@ export function ModelField({
           className={cx(fieldClass, "h-10")}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          placeholder={loading ? "正在拉取模型..." : "输入模型名称"}
+          placeholder={loading ? t("providerForm.loadingModels") : t("providerForm.modelPlaceholder")}
         />
       )}
       {status && (
         <span
           className={cx(
             "truncate text-[12px] font-semibold",
-            status.startsWith("模型拉取失败") ? "text-amber-700" : "text-emerald-800",
+            statusTone === "warning" ? "text-amber-700" : "text-emerald-800",
           )}
         >
           {status}

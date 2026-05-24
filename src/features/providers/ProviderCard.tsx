@@ -3,6 +3,7 @@ import { Box, Edit3, Globe2, MoreVertical, Trash2 } from "lucide-react";
 import { Badge, Button, IconButton } from "../../components/ui";
 import type { Provider } from "../../lib/types";
 import { cx } from "../../lib/ui";
+import { useI18n } from "../../i18n";
 import { ProviderAvatar } from "./ProviderAvatar";
 
 export function ProviderCard({
@@ -24,6 +25,7 @@ export function ProviderCard({
   const canDelete = !isCurrent;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { t } = useI18n();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -75,9 +77,9 @@ export function ProviderCard({
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
           <h2 className="truncate text-[16px] font-bold text-stone-950">{provider.name}</h2>
-          {isCurrent && <Badge tone="active">使用中</Badge>}
-          {missingKey && <Badge tone="warn">缺 Key</Badge>}
-          {provider.disableImageGeneration && <Badge>无图片工具</Badge>}
+          {isCurrent && <Badge tone="active">{t("providers.badgeActive")}</Badge>}
+          {missingKey && <Badge tone="warn">{t("providers.badgeMissingKey")}</Badge>}
+          {provider.disableImageGeneration && <Badge>{t("providers.badgeNoImageTool")}</Badge>}
         </div>
         <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] text-stone-500">
           <Box size={14} className="shrink-0" />
@@ -92,17 +94,17 @@ export function ProviderCard({
       <div className="flex shrink-0 items-center gap-1.5">
         {!isCurrent && (
           <Button size="sm" disabled={busy || missingKey} onClick={onSwitch}>
-            切换
+            {t("providers.switch")}
           </Button>
         )}
         <Button size="sm" onClick={onEdit}>
           <Edit3 size={14} />
-          编辑
+          {t("providers.edit")}
         </Button>
         {canDelete && (
           <div ref={menuRef} className="relative">
             <IconButton
-              title="更多"
+              title={t("providers.more")}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
@@ -121,7 +123,7 @@ export function ProviderCard({
                   onClick={handleDelete}
                 >
                   <Trash2 size={14} />
-                  删除
+                  {t("providers.delete")}
                 </button>
               </div>
             )}

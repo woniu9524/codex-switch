@@ -2,6 +2,7 @@ import { Minus, Square, X } from "lucide-react";
 import type { ThemeMode } from "../../lib/types";
 import { controlWindow } from "../../lib/window";
 import { cx } from "../../lib/ui";
+import { useI18n } from "../../i18n";
 
 export function TitleBar({
   online,
@@ -9,6 +10,8 @@ export function TitleBar({
   online: boolean;
   themeMode: ThemeMode;
 }) {
+  const { t } = useI18n();
+
   return (
     <header
       className="title-bar flex h-[46px] shrink-0 select-none items-center border-b border-stone-200 bg-white/95 px-4 text-stone-950"
@@ -28,13 +31,13 @@ export function TitleBar({
       </button>
 
       <div className="ml-auto flex items-center gap-1.5">
-        <WindowButton label="最小化" onClick={() => void controlWindow("minimize")}>
+        <WindowButton label={t("window.minimize")} onClick={() => void controlWindow("minimize")}>
           <Minus size={18} strokeWidth={2} />
         </WindowButton>
-        <WindowButton label="最大化" onClick={() => void controlWindow("maximize")}>
+        <WindowButton label={t("window.maximize")} onClick={() => void controlWindow("maximize")}>
           <Square size={16} strokeWidth={2} />
         </WindowButton>
-        <WindowButton danger label="关闭到托盘" onClick={() => void controlWindow("close")}>
+        <WindowButton danger label={t("window.closeToTray")} onClick={() => void controlWindow("close")}>
           <X size={20} strokeWidth={2} />
         </WindowButton>
       </div>

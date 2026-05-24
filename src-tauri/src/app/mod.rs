@@ -508,6 +508,7 @@ pub async fn update_settings(
             state.codex_dir_override = next_codex_dir_override.clone();
             state.launch_at_login = input.launch_at_login;
             state.theme_mode = input.theme_mode;
+            state.language_mode = input.language_mode;
             Ok(())
         })
         .map_err(to_user_error)?;

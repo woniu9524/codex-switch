@@ -7,6 +7,8 @@ import { ModelField } from "../features/providers/ModelField";
 import { newProviderForm, providerToForm } from "../features/providers/providerForm";
 import { api } from "../lib/api";
 import type { Provider, ProviderInput, Snapshot } from "../lib/types";
+import { useI18n } from "../i18n";
+import type { ModelStatusTone } from "../features/providers/ModelField";
 
 export function ProviderFormPage({
   snapshot,
@@ -36,11 +38,14 @@ export function ProviderFormPage({
   const [modelOptions, setModelOptions] = React.useState<string[]>([]);
   const [modelLoading, setModelLoading] = React.useState(false);
   const [modelStatus, setModelStatus] = React.useState<string | null>(null);
+  const [modelStatusTone, setModelStatusTone] = React.useState<ModelStatusTone>("success");
+  const { t } = useI18n();
 
   React.useEffect(() => {
     setForm(initialForm);
     setModelOptions([]);
     setModelStatus(null);
+    setModelStatusTone("success");
   }, [initialForm]);
 
   React.useEffect(() => {
@@ -78,16 +83,20 @@ export function ProviderFormPage({
       try {
         const result = await api.fetchProviderModels(provider.id);
         applyModels(result.models);
-        setModelStatus(`已拉取 ${result.models.length} 个模型`);
+        setModelStatus(t("providerForm.modelsFetched", { count: result.models.length }));
+        setModelStatusTone("success");
         return result.models;
       } catch (error) {
-        if (!quiet) setModelStatus(`模型拉取失败，可手动输入：${String(error)}`);
+        if (!quiet) {
+          setModelStatus(t("providerForm.modelsFetchFailed", { error: String(error) }));
+          setModelStatusTone("warning");
+        }
         return null;
       } finally {
         setModelLoading(false);
       }
     },
-    [applyModels],
+    [applyModels, t],
   );
 
   React.useEffect(() => {
@@ -104,7 +113,7 @@ export function ProviderFormPage({
       ...form,
       switchNow: form.switchNow && canSwitchAfterSave,
     };
-    const next = await run(() => api.saveProvider(submission), "供应商已保存。");
+    const next = await run(() => api.saveProvider(submission), t("providerForm.saved"));
     if (next) go("providers");
   };
 
@@ -114,17 +123,17 @@ export function ProviderFormPage({
 
   return (
     <Page
-      title={editingProvider ? "编辑供应商" : "添加供应商"}
+      title={editingProvider ? t("providerForm.editTitle") : t("providerForm.addTitle")}
       back={() => go("providers")}
     >
       {providerId && !editingProvider ? (
-        <EmptyState title="供应商不存在" action="它可能已经被删除" />
+        <EmptyState title={t("providerForm.missingTitle")} action={t("providerForm.missingAction")} />
       ) : (
         <form className="flex flex-col gap-3.5" onSubmit={submit}>
           <Card className="overflow-hidden">
             <div className="grid gap-4 p-4">
               <Field
-                label="名称"
+                label={t("providerForm.name")}
                 value={form.name}
                 onValueChange={(name) => set({ name })}
                 placeholder="DeepSeek"
@@ -143,11 +152,12 @@ export function ProviderFormPage({
                 autoComplete="off"
               />
               <ModelField
-                label="默认模型"
+                label={t("providerForm.defaultModel")}
                 value={form.model}
                 options={modelOptions}
                 loading={modelLoading}
                 status={modelStatus}
+                statusTone={modelStatusTone}
                 onChange={(model) => set({ model })}
                 onRefresh={
                   editingProvider && editingProvider.keyStatus !== "missing"
@@ -163,8 +173,8 @@ export function ProviderFormPage({
               onClick={() => setAdvancedOpen((value) => !value)}
             >
               <span>
-                <span className="block text-[15px] font-bold text-stone-950">高级信息</span>
-                <span className="mt-0.5 block text-[12px] text-stone-500">官网、备注</span>
+                <span className="block text-[15px] font-bold text-stone-950">{t("providerForm.advanced")}</span>
+                <span className="mt-0.5 block text-[12px] text-stone-500">{t("providerForm.advancedDetail")}</span>
               </span>
               <ChevronDown
                 className={advancedOpen ? "rotate-180 transition" : "transition"}
@@ -175,25 +185,25 @@ export function ProviderFormPage({
             {advancedOpen && (
               <div className="grid gap-4 border-t border-stone-100 p-4">
                 <Field
-                  label="官网（可选）"
+                  label={t("providerForm.homepage")}
                   value={form.homepage ?? ""}
                   onValueChange={(homepage) => set({ homepage })}
                   placeholder="https://example.com"
                 />
                 <Field
-                  label="备注（可选）"
+                  label={t("providerForm.notes")}
                   value={form.notes ?? ""}
                   onValueChange={(notes) => set({ notes })}
-                  placeholder="计费说明、模型列表等"
+                  placeholder={t("providerForm.notesPlaceholder")}
                   textarea
                 />
                 <div className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-md border border-stone-200 bg-stone-50 px-3 py-3">
                   <span>
                     <span className="block text-[14px] font-bold text-stone-950">
-                      关闭图片生成工具
+                      {t("providerForm.disableImageGeneration")}
                     </span>
                     <span className="mt-0.5 block text-[12px] text-stone-500">
-                      发送请求前移除 image_generation 工具
+                      {t("providerForm.disableImageGenerationDetail")}
                     </span>
                   </span>
                   <Switch
@@ -209,12 +219,12 @@ export function ProviderFormPage({
 
           <Button size="lg" tone="primary" disabled={busy}>
             {busy ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-            保存
+            {t("providerForm.save")}
           </Button>
 
           <Card className="grid grid-cols-[1fr_auto] items-center gap-3 p-4">
             <span className="text-[14px] font-bold text-stone-950">
-              {canSwitchAfterSave ? "设为当前供应商" : "填写 API Key 后可设为当前"}
+              {canSwitchAfterSave ? t("providerForm.setCurrent") : t("providerForm.setCurrentNeedsKey")}
             </span>
             <Switch
               checked={form.switchNow && canSwitchAfterSave}

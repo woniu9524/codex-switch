@@ -5,6 +5,7 @@ import { ProviderAvatar } from "../features/providers/ProviderAvatar";
 import { api } from "../lib/api";
 import type { Snapshot } from "../lib/types";
 import { cx } from "../lib/ui";
+import { useI18n } from "../i18n";
 
 export function ControlPage({
   snapshot,
@@ -20,6 +21,7 @@ export function ControlPage({
   const enabled = snapshot.state.enabled;
   const active = snapshot.activeProvider;
   const canEnable = Boolean(active);
+  const { t } = useI18n();
 
   return (
     <div className="mx-auto flex w-full max-w-[560px] flex-col gap-3.5">
@@ -34,11 +36,11 @@ export function ControlPage({
                 )}
               />
               <h2 className="text-[18px] font-bold text-stone-950">
-                {enabled ? "代理已启用" : "代理未启用"}
+                {enabled ? t("control.proxyEnabled") : t("control.proxyDisabled")}
               </h2>
             </div>
             <p className="mt-2 truncate text-[14px] text-stone-500">
-              {active ? `${active.name} · ${active.model}` : "未设置供应商"}
+              {active ? `${active.name} · ${active.model}` : t("control.noProvider")}
             </p>
           </div>
 
@@ -50,20 +52,20 @@ export function ControlPage({
             onClick={() =>
               run(
                 enabled ? api.disable : api.enable,
-                enabled ? "已停用，Codex 配置已尝试恢复。" : "已启用，请新开 Codex 会话生效。",
+                enabled ? t("control.disabledSuccess") : t("control.enabledSuccess"),
               )
             }
           >
             {enabled ? <Power size={16} /> : <ShieldCheck size={16} />}
-            {enabled ? "停用代理" : canEnable ? "启用代理" : "先添加"}
+            {enabled ? t("control.disableProxy") : canEnable ? t("control.enableProxy") : t("control.addFirst")}
           </Button>
         </div>
 
         <div className="mt-4 divide-y divide-stone-100 border-t border-stone-100">
-          <InfoRow icon={<Terminal size={18} />} label="端口" value={`127.0.0.1:${snapshot.state.proxyPort}`}>
+          <InfoRow icon={<Terminal size={18} />} label={t("control.port")} value={`127.0.0.1:${snapshot.state.proxyPort}`}>
             <button
               className="grid size-8 place-items-center rounded-md text-stone-500 transition hover:bg-stone-100 hover:text-stone-950"
-              title="复制端口"
+              title={t("control.copyPort")}
               onClick={() => void navigator.clipboard?.writeText(`127.0.0.1:${snapshot.state.proxyPort}`)}
             >
               <Copy size={17} />
@@ -74,12 +76,12 @@ export function ControlPage({
 
       <Card className="p-4">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-[18px] font-bold text-stone-950">当前供应商</h2>
+          <h2 className="text-[18px] font-bold text-stone-950">{t("control.currentProvider")}</h2>
           <button
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[13px] font-medium text-emerald-800 transition hover:bg-emerald-50"
             onClick={() => go("providers")}
           >
-            更换
+            {t("control.changeProvider")}
             <span aria-hidden>›</span>
           </button>
         </div>
@@ -101,7 +103,7 @@ export function ControlPage({
           </div>
         ) : (
           <div className="rounded-md bg-stone-50 p-4 text-[13px] leading-5 text-stone-500">
-            添加或导入一个带 API Key 的供应商后，就可以启用本地代理。
+            {t("control.emptyProviderHint")}
           </div>
         )}
       </Card>

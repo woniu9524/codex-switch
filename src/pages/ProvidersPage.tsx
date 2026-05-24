@@ -6,6 +6,7 @@ import { Page } from "../components/layout/Page";
 import { ProviderCard } from "../features/providers/ProviderCard";
 import { api } from "../lib/api";
 import type { Snapshot } from "../lib/types";
+import { useI18n } from "../i18n";
 
 export function ProvidersPage({
   snapshot,
@@ -21,6 +22,7 @@ export function ProvidersPage({
   editProvider: (providerId: string) => void;
 }) {
   const [query, setQuery] = React.useState("");
+  const { t } = useI18n();
   const providers = snapshot.state.providers.filter((provider) => {
     const value = `${provider.name} ${provider.endpoint} ${provider.model}`.toLowerCase();
     return value.includes(query.trim().toLowerCase());
@@ -28,11 +30,11 @@ export function ProvidersPage({
 
   return (
     <Page
-      title="供应商"
+      title={t("providers.title")}
       actions={
         <Button size="lg" tone="secondary" onClick={() => go("provider-form")}>
           <Plus size={17} />
-          添加供应商
+          {t("providers.add")}
         </Button>
       }
     >
@@ -45,14 +47,14 @@ export function ProvidersPage({
           className="h-10 w-full rounded-md border border-stone-300 bg-white pl-12 pr-3 text-[14px] outline-none transition placeholder:text-stone-400 focus:border-emerald-600 focus:ring-3 focus:ring-emerald-100"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="搜索供应商或 Endpoint"
+          placeholder={t("providers.searchPlaceholder")}
         />
       </label>
 
       {snapshot.state.providers.length === 0 ? (
-        <EmptyState title="还没有供应商" action="添加或导入一个 OpenAI-compatible 端点" />
+        <EmptyState title={t("providers.emptyTitle")} action={t("providers.emptyAction")} />
       ) : providers.length === 0 ? (
-        <EmptyState title="没有匹配结果" action="换个名称、模型或 Endpoint 试试" />
+        <EmptyState title={t("providers.noMatchTitle")} action={t("providers.noMatchAction")} />
       ) : (
         <div className="flex flex-col gap-2.5">
           {providers.map((provider) => (
@@ -61,9 +63,9 @@ export function ProvidersPage({
               provider={provider}
               isCurrent={provider.id === snapshot.state.activeProviderId}
               busy={busy}
-              onSwitch={() => run(() => api.switchProvider(provider.id), "已切换供应商。")}
+              onSwitch={() => run(() => api.switchProvider(provider.id), t("providers.switched"))}
               onEdit={() => editProvider(provider.id)}
-              onDelete={() => run(() => api.deleteProvider(provider.id), "供应商已删除。")}
+              onDelete={() => run(() => api.deleteProvider(provider.id), t("providers.deleted"))}
             />
           ))}
         </div>
@@ -71,7 +73,7 @@ export function ProvidersPage({
 
       <Button className="mt-auto w-full" size="lg" onClick={() => go("provider-import")}>
         <Link size={17} />
-        导入链接
+        {t("providers.importLink")}
       </Button>
     </Page>
   );

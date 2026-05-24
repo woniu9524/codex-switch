@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { cx } from "../../lib/ui";
+import { useI18n } from "../../i18n";
 
 export function Page({
   title,
@@ -15,6 +16,8 @@ export function Page({
   back?: () => void;
   className?: string;
 }) {
+  const { t } = useI18n();
+
   return (
     <div className={cx("mx-auto flex w-full max-w-[560px] flex-col gap-3.5", className)}>
       <div className="flex min-h-10 items-center justify-between gap-3">
@@ -23,7 +26,7 @@ export function Page({
             <button
               className="grid size-9 shrink-0 place-items-center rounded-md text-stone-950 transition hover:bg-stone-100"
               onClick={back}
-              title="返回"
+              title={t("nav.back")}
             >
               <ArrowLeft size={23} strokeWidth={2} />
             </button>

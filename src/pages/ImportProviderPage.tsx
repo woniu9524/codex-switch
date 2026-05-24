@@ -5,6 +5,7 @@ import { Button, Card, EmptyInline, Switch, TextArea } from "../components/ui";
 import { Page } from "../components/layout/Page";
 import { api } from "../lib/api";
 import type { ImportPreview, Snapshot } from "../lib/types";
+import { useI18n } from "../i18n";
 
 export function ImportProviderPage({
   snapshot,
@@ -21,6 +22,7 @@ export function ImportProviderPage({
   const [preview, setPreview] = React.useState<ImportPreview | null>(null);
   const [parseError, setParseError] = React.useState<string | null>(null);
   const [switchNow, setSwitchNow] = React.useState(false);
+  const { t } = useI18n();
 
   const parse = async () => {
     setParseError(null);
@@ -38,16 +40,16 @@ export function ImportProviderPage({
     const effectiveSwitchNow = switchNow && Boolean(preview?.hasApiKey);
     const next = await run(
       () => api.importProvider(url, effectiveSwitchNow),
-      effectiveSwitchNow ? "已导入并切换。" : "供应商已导入。",
+      effectiveSwitchNow ? t("import.importedAndSwitched") : t("import.imported"),
     );
     if (next) go("providers");
   };
 
   return (
-    <Page title="导入供应商" back={() => go("providers")}>
+    <Page title={t("import.title")} back={() => go("providers")}>
       <Card className="p-4">
         <div className="mb-3 text-[13px] font-medium text-stone-700">
-          粘贴 codexswitch:// 或 ccswitch:// 链接
+          {t("import.pasteHint")}
         </div>
         <TextArea
           value={url}
@@ -56,7 +58,7 @@ export function ImportProviderPage({
         />
         <Button className="mt-5" disabled={!url.trim()} onClick={parse}>
           <Link size={16} />
-          解析链接
+          {t("import.parse")}
         </Button>
         {parseError && (
           <div className="mt-3 rounded-md bg-red-50 px-3 py-2 text-[12px] font-semibold text-red-700">
@@ -67,22 +69,22 @@ export function ImportProviderPage({
 
       <Card className="overflow-hidden">
         <div className="border-b border-stone-100 px-4 py-3 text-[17px] font-bold text-stone-950">
-          预览
+          {t("import.preview")}
         </div>
         {!preview ? (
           <div className="p-4">
-            <EmptyInline>解析后在这里确认供应商详情</EmptyInline>
+            <EmptyInline>{t("import.previewEmpty")}</EmptyInline>
           </div>
         ) : (
           <div className="divide-y divide-stone-100 px-4">
             <PreviewRow
-              label="来源"
-              value={preview.scheme === "ccswitch" ? "CC Switch 兼容" : "codex-switch"}
+              label={t("import.source")}
+              value={preview.scheme === "ccswitch" ? t("import.ccSwitchCompatible") : "codex-switch"}
             />
-            <PreviewRow label="名称" value={preview.name} />
+            <PreviewRow label={t("import.name")} value={preview.name} />
             <PreviewRow label="Endpoint" value={preview.endpoint} />
-            <PreviewRow label="模型" value={preview.model} />
-            <PreviewRow label="Key" value={preview.apiKeyMasked ?? "未提供"} accent={preview.hasApiKey} />
+            <PreviewRow label={t("import.model")} value={preview.model} />
+            <PreviewRow label="Key" value={preview.apiKeyMasked ?? t("import.keyMissing")} accent={preview.hasApiKey} />
           </div>
         )}
       </Card>
@@ -91,7 +93,7 @@ export function ImportProviderPage({
         <>
           <Card className="grid grid-cols-[1fr_auto] items-center gap-3 p-4">
             <span className="text-[14px] font-bold text-stone-950">
-              {preview.hasApiKey ? "设为当前供应商" : "提供 API Key 后可设为当前"}
+              {preview.hasApiKey ? t("import.setCurrent") : t("import.setCurrentNeedsKey")}
             </span>
             <Switch
               checked={switchNow && preview.hasApiKey}
@@ -101,7 +103,7 @@ export function ImportProviderPage({
           </Card>
           <Button size="lg" tone="primary" disabled={busy} onClick={confirm}>
             {busy ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-            导入
+            {t("import.confirm")}
           </Button>
         </>
       )}

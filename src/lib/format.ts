@@ -1,4 +1,5 @@
 import type { KeyStatus, LoginMode } from "./types";
+import type { MessageKey, TranslationParams } from "../i18n";
 
 export function compactPath(value: string, max = 44) {
   if (value.length <= max) return value;
@@ -9,24 +10,26 @@ export function compactPath(value: string, max = 44) {
   return `.../${tail}`;
 }
 
-export function loginModeLabel(mode: LoginMode) {
+type Translate = (key: MessageKey, params?: TranslationParams) => string;
+
+export function loginModeLabel(mode: LoginMode, t: Translate) {
   return {
     api_key: "API Key",
-    chat_gpt: "ChatGPT 登录",
-    mixed: "混合登录",
-    unknown: "未确认",
+    chat_gpt: t("format.loginChatGpt"),
+    mixed: t("format.loginMixed"),
+    unknown: t("format.loginUnknown"),
   }[mode];
 }
 
-export function keyStatusLabel(status?: KeyStatus | null) {
-  if (status === "present") return "Key 已保存";
-  return "缺少 Key";
+export function keyStatusLabel(status: KeyStatus | null | undefined, t: Translate) {
+  if (status === "present") return t("format.keySaved");
+  return t("format.keyMissing");
 }
 
-export function relativeTime(timestamp?: number | null) {
-  if (!timestamp) return "无请求";
+export function relativeTime(timestamp: number | null | undefined, t: Translate) {
+  if (!timestamp) return t("format.noRequests");
   const diff = Date.now() - timestamp;
-  if (diff < 60_000) return "刚刚";
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
+  if (diff < 60_000) return t("format.justNow");
+  if (diff < 3_600_000) return t("format.minutesAgo", { count: Math.floor(diff / 60_000) });
   return new Date(timestamp).toLocaleString();
 }

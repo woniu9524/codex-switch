@@ -11,6 +11,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { api } from "./lib/api";
 import type { Snapshot, ThemeMode } from "./lib/types";
 import { cx } from "./lib/ui";
+import { I18nProvider, useI18n } from "./i18n";
 
 export function App() {
   const [view, setView] = React.useState<View>("control");
@@ -75,6 +76,55 @@ export function App() {
   }, [snapshot, themePreview]);
 
   return (
+    <I18nProvider languageMode={snapshot?.state.languageMode ?? "system"}>
+      <AppShell
+        view={view}
+        editingProviderId={editingProviderId}
+        snapshot={snapshot}
+        busy={busy}
+        message={message}
+        themeMode={themeMode}
+        mainRef={mainRef}
+        run={run}
+        go={go}
+        editProvider={editProvider}
+        setMessage={setMessage}
+        previewTheme={previewTheme}
+      />
+    </I18nProvider>
+  );
+}
+
+function AppShell({
+  view,
+  editingProviderId,
+  snapshot,
+  busy,
+  message,
+  themeMode,
+  mainRef,
+  run,
+  go,
+  editProvider,
+  setMessage,
+  previewTheme,
+}: {
+  view: View;
+  editingProviderId: string | null;
+  snapshot: Snapshot | null;
+  busy: boolean;
+  message: string | null;
+  themeMode: ThemeMode;
+  mainRef: React.RefObject<HTMLElement>;
+  run: (action: () => Promise<Snapshot>, success?: string) => Promise<Snapshot | null>;
+  go: (next: View) => void;
+  editProvider: (providerId: string) => void;
+  setMessage: (message: string | null) => void;
+  previewTheme: (mode: ThemeMode | null) => void;
+}) {
+  const { t } = useI18n();
+
+  return (
     <div
       className={cx(
         "app-shell flex h-screen min-h-0 flex-col overflow-hidden bg-stone-50 text-stone-950",
@@ -95,7 +145,7 @@ export function App() {
               <button
                 className="ml-auto grid size-5 shrink-0 place-items-center rounded text-amber-800 transition hover:bg-amber-100"
                 onClick={() => setMessage(null)}
-                title="关闭提示"
+                title={t("app.dismissMessage")}
               >
                 <X size={14} />
               </button>
