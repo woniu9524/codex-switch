@@ -125,5 +125,3 @@ src-tauri/src/proxy 本地代理实现
 
 - [farion1231/cc-switch](https://github.com/farion1231/cc-switch)
 - [gaoguobin/codex-fast-proxy](https://github.com/gaoguobin/codex-fast-proxy)
-
-感谢这些项目提供的思路与前置探索，帮助 `codex-switch` 明确了自己的方向：不是取代 Codex 登录，而是在登录态下把供应商切换这件事做好。

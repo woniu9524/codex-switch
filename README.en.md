@@ -124,5 +124,3 @@ This project is inspired by and developed with reference to:
 
 - [farion1231/cc-switch](https://github.com/farion1231/cc-switch)
 - [gaoguobin/codex-fast-proxy](https://github.com/gaoguobin/codex-fast-proxy)
-
-Thanks to the ideas and prior exploration from these projects, which helped clarify the direction of `codex-switch`: keep Codex signed in, then make provider switching work on top of that.
