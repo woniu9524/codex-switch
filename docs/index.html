@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>codex-switch v2 项目文档</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f7f2;
+        --surface: #ffffff;
+        --surface-2: #eef2e8;
+        --ink: #1b2430;
+        --muted: #657083;
+        --line: #dce2d4;
+        --accent: #1664d9;
+        --accent-2: #0f8a62;
+        --danger: #b3263a;
+        --warn: #9a5a00;
+        --code-bg: #111827;
+        --code-ink: #e8edf6;
+        --shadow: 0 20px 45px rgba(31, 41, 55, 0.08);
+      }
+
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #101419;
+        --surface: #171d24;
+        --surface-2: #202833;
+        --ink: #edf2f8;
+        --muted: #a8b4c3;
+        --line: #2e3946;
+        --accent: #73a8ff;
+        --accent-2: #57d29b;
+        --danger: #ff7a8a;
+        --warn: #ffbd66;
+        --code-bg: #0b0f14;
+        --code-ink: #f2f6fc;
+        --shadow: 0 22px 55px rgba(0, 0, 0, 0.32);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34%),
+          var(--bg);
+        font-family:
+          "Segoe UI",
+          "Microsoft YaHei",
+          system-ui,
+          sans-serif;
+        line-height: 1.65;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+      }
+
+      .page {
+        display: grid;
+        grid-template-columns: 260px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        border-right: 1px solid var(--line);
+        background: color-mix(in srgb, var(--surface) 92%, transparent);
+        padding: 24px 18px;
+        overflow: auto;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 26px;
+        font-weight: 800;
+      }
+
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        color: #ffffff;
+        background: var(--accent);
+      }
+
+      .nav {
+        display: grid;
+        gap: 6px;
+      }
+
+      .nav a {
+        border-radius: 8px;
+        color: var(--muted);
+        padding: 8px 10px;
+        text-decoration: none;
+      }
+
+      .nav a:hover {
+        color: var(--ink);
+        background: var(--surface-2);
+      }
+
+      .theme-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
+        margin-top: 24px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--ink);
+        background: var(--surface);
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 34px clamp(22px, 5vw, 72px) 72px;
+      }
+
+      .hero {
+        display: grid;
+        gap: 22px;
+        max-width: 1120px;
+        margin-bottom: 26px;
+      }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        max-width: 860px;
+        margin-bottom: 0;
+        font-size: clamp(34px, 6vw, 64px);
+        line-height: 1.04;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        margin-bottom: 16px;
+        font-size: clamp(24px, 3vw, 36px);
+        line-height: 1.16;
+      }
+
+      h3 {
+        margin-bottom: 8px;
+        font-size: 18px;
+      }
+
+      .lead {
+        max-width: 820px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 18px;
+      }
+
+      .hero-grid,
+      .cards,
+      .feature-grid,
+      .stack-grid,
+      .flow-grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .hero-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .cards,
+      .stack-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .feature-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .flow-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .card,
+      .section,
+      .callout,
+      .code-block {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--surface) 96%, transparent);
+        box-shadow: var(--shadow);
+      }
+
+      .card {
+        padding: 16px;
+      }
+
+      .card strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .card span,
+      .muted {
+        color: var(--muted);
+      }
+
+      .section {
+        max-width: 1120px;
+        margin-top: 18px;
+        padding: clamp(20px, 4vw, 34px);
+      }
+
+      .callout {
+        border-color: color-mix(in srgb, var(--accent-2) 45%, var(--line));
+        background: color-mix(in srgb, var(--accent-2) 9%, var(--surface));
+        padding: 16px 18px;
+      }
+
+      .callout.warning {
+        border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
+        background: color-mix(in srgb, var(--warn) 10%, var(--surface));
+      }
+
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        min-height: 26px;
+        border-radius: 999px;
+        color: var(--ink);
+        background: var(--surface-2);
+        padding: 2px 10px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .tag.green {
+        color: color-mix(in srgb, var(--accent-2) 80%, var(--ink));
+        background: color-mix(in srgb, var(--accent-2) 16%, var(--surface));
+      }
+
+      .tag.blue {
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 0.8fr);
+        gap: 18px;
+        align-items: start;
+      }
+
+      .code-block {
+        overflow: hidden;
+        background: var(--code-bg);
+        box-shadow: none;
+      }
+
+      .code-title {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        color: #aab6c5;
+        padding: 10px 14px;
+        font-size: 13px;
+      }
+
+      pre {
+        margin: 0;
+        overflow: auto;
+        padding: 16px;
+        color: var(--code-ink);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      code {
+        font-family:
+          "Cascadia Code",
+          Consolas,
+          monospace;
+      }
+
+      :not(pre) > code {
+        border-radius: 5px;
+        color: var(--ink);
+        background: var(--surface-2);
+        padding: 1px 5px;
+      }
+
+      ul,
+      ol {
+        padding-left: 22px;
+      }
+
+      li + li {
+        margin-top: 6px;
+      }
+
+      .matrix {
+        display: grid;
+        gap: 10px;
+      }
+
+      .matrix-row {
+        display: grid;
+        grid-template-columns: 170px minmax(0, 1fr);
+        gap: 14px;
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+
+      .matrix-row:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+
+      .matrix-row strong {
+        color: var(--ink);
+      }
+
+      .timeline {
+        display: grid;
+        gap: 12px;
+        counter-reset: step;
+      }
+
+      .step {
+        display: grid;
+        grid-template-columns: 38px minmax(0, 1fr);
+        gap: 12px;
+      }
+
+      .step::before {
+        counter-increment: step;
+        content: counter(step);
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        color: #ffffff;
+        background: var(--accent);
+        font-weight: 800;
+      }
+
+      .checklist {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        padding-left: 0;
+        list-style: none;
+      }
+
+      .checklist li {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        padding: 10px 12px;
+      }
+
+      .checklist li::before {
+        content: "□";
+        margin-right: 8px;
+        color: var(--accent);
+        font-weight: 900;
+      }
+
+      .footer {
+        max-width: 1120px;
+        margin-top: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 980px) {
+        .page {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+        }
+
+        .hero-grid,
+        .cards,
+        .feature-grid,
+        .stack-grid,
+        .flow-grid,
+        .split,
+        .checklist {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">CS</span>
+          <span>codex-switch v2</span>
+        </div>
+        <nav class="nav" aria-label="文档导航">
+          <a href="#overview">项目概览</a>
+          <a href="#stack">技术栈</a>
+          <a href="#structure">项目结构</a>
+          <a href="#features">功能范围</a>
+          <a href="#implementation-features">具体实现功能</a>
+          <a href="#new-features">新增能力</a>
+          <a href="#flows">核心流程</a>
+          <a href="#security">安全边界</a>
+          <a href="#plan">实现计划</a>
+          <a href="#acceptance">验收清单</a>
+        </nav>
+        <button class="theme-toggle" id="themeToggle" type="button">
+          <span>文档主题</span>
+          <strong id="themeLabel">浅色</strong>
+        </button>
+      </aside>
+
+      <main class="main">
+        <header class="hero" id="overview">
+          <p class="eyebrow">Project specification</p>
+          <h1>codex-switch v2：Codex 专用本地模型路由器</h1>
+          <p class="lead">
+            当前项目聚焦 <code>codex-switch</code>。产品目标是让用户先显式配置 OpenAI-compatible 供应商，再启用本地代理。Codex 始终固定使用 <code>codex-switch</code> provider，真实上游在本地代理内切换。
+          </p>
+          <div class="hero-grid">
+            <div class="card">
+              <strong>显式供应商</strong>
+              <span>新安装状态下不内置默认上游。</span>
+            </div>
+            <div class="card">
+              <strong>先添加再启用</strong>
+              <span>没有 active provider 时提示先添加。</span>
+            </div>
+            <div class="card">
+              <strong>登录态保护</strong>
+              <span>不修改 Codex 的 <code>auth.json</code>。</span>
+            </div>
+            <div class="card">
+              <strong>关闭前恢复</strong>
+              <span>退出应用前恢复 Codex 配置。</span>
+            </div>
+          </div>
+        </header>
+
+        <section class="section" id="stack">
+          <h2>技术栈</h2>
+          <div class="stack-grid">
+            <div class="card">
+              <h3>桌面壳</h3>
+              <p>Tauri 2，关闭系统标题栏，使用自绘标题栏和窗口控制按钮。</p>
+              <div class="tag-row">
+                <span class="tag blue">tauri</span>
+                <span class="tag">decorations=false</span>
+                <span class="tag">data-tauri-drag-region</span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>后端</h3>
+              <p>Rust 负责配置写入、透明代理、系统凭据、更新检查和退出恢复。</p>
+              <div class="tag-row">
+                <span class="tag blue">Rust</span>
+                <span class="tag">Axum</span>
+                <span class="tag">Reqwest</span>
+                <span class="tag">Tokio</span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>前端</h3>
+              <p>React + TypeScript + Vite。UI 使用 CSS token 支持浅色、暗黑和系统主题。</p>
+              <div class="tag-row">
+                <span class="tag blue">React</span>
+                <span class="tag">TypeScript</span>
+                <span class="tag">Vite</span>
+                <span class="tag">lucide-react</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="matrix" style="margin-top: 18px">
+            <div class="matrix-row">
+              <strong>状态存储</strong>
+              <span>P0 使用 <code>~/.codex-switch/state/state.json</code>。provider 历史、用量统计进入 P1 后再迁移 SQLite。</span>
+            </div>
+            <div class="matrix-row">
+              <strong>配置编辑</strong>
+              <span>使用 <code>toml_edit</code>，避免字符串替换误伤 <code>[mcp_servers.*]</code> 和 <code>[projects.*]</code>。</span>
+            </div>
+            <div class="matrix-row">
+              <strong>系统凭据</strong>
+              <span>第三方 API Key 使用系统 keyring。状态文件只保存引用，不保存明文。</span>
+            </div>
+            <div class="matrix-row">
+              <strong>软件更新</strong>
+              <span>使用 Tauri updater plugin，发布包必须签名，支持静态 JSON 或动态更新服务。</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="structure">
+          <h2>项目结构最佳实践</h2>
+          <div class="split">
+            <div>
+              <p>
+                结构按“产品层、桌面桥、系统能力、代理能力”分离。前端只处理交互和展示；Rust 后端承载所有会影响用户系统状态的动作。
+              </p>
+              <div class="callout">
+                <strong>约束</strong>
+                <p class="muted" style="margin-bottom: 0">
+                  v2 项目只在 <code>codex-switch</code> 开发。旧 <code>codex-switch</code> 目录只作为参考，不直接改旧代码。
+                </p>
+              </div>
+            </div>
+            <div class="code-block">
+              <div class="code-title">建议目录</div>
+              <pre><code>codex-switch/
+  docs/
+    index.html
+  src/
+    main.tsx
+    styles.css
+    app/
+      App.tsx
+      routes.ts
+    components/
+      TitleBar.tsx
+      ThemeToggle.tsx
+      ProviderCard.tsx
+    features/
+      home/
+      providers/
+      import/
+      settings/
+      updates/
+    lib/
+      api.ts
+      format.ts
+      types.ts
+  src-tauri/
+    tauri.conf.json
+    capabilities/
+    src/
+      app/
+        mod.rs
+        models.rs
+        store.rs
+        codex_auth.rs
+        codex_config.rs
+        deeplink.rs
+        secrets.rs
+        updater.rs
+        window.rs
+      proxy/
+        mod.rs
+      main.rs</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="features">
+          <h2>功能范围</h2>
+          <div class="feature-grid">
+            <div class="card">
+              <h3>v1 基础能力</h3>
+              <ul>
+                <li>Provider 添加、编辑、删除和设为当前。</li>
+                <li>支持第三方 OpenAI-compatible Endpoint。</li>
+                <li>支持 <code>codexswitch://</code> 和 <code>ccswitch://</code> 导入。</li>
+                <li>启动本地代理，写入 Codex 配置。</li>
+                <li>停用时恢复 Codex 配置，不修改登录态。</li>
+                <li>基础日志、健康检查和端口设置。</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>v2 必须修正</h3>
+              <ul>
+                <li>首次启动不再注入默认官方 provider。</li>
+                <li>没有 active provider 时首页主按钮显示“先添加”。</li>
+                <li>添加带 API Key 的 provider 后才能启用。</li>
+                <li>无效 active provider 会被归一化为空。</li>
+                <li>转发必须剥离 Codex 登录凭据。</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="implementation-features">
+          <h2>具体实现功能</h2>
+          <div class="matrix">
+            <div class="matrix-row">
+              <strong>首页状态</strong>
+              <span>展示未启用、已启用、代理端口、Codex 配置目录、登录态诊断、当前目标、最近请求。未选择供应商时主按钮为“先添加”。</span>
+            </div>
+            <div class="matrix-row">
+              <strong>启用接管</strong>
+              <span>启动本地代理，备份 <code>config.toml</code>，写入固定 <code>model_provider = "codex-switch"</code>，并禁用 WebSocket。</span>
+            </div>
+            <div class="matrix-row">
+              <strong>停用恢复</strong>
+              <span>停止代理，恢复启用前的 <code>model_provider</code>、<code>model</code>、<code>openai_base_url</code>，清理旧 <code>codex-switch</code> provider。</span>
+            </div>
+            <div class="matrix-row">
+              <strong>Provider 管理</strong>
+              <span>用户 provider 支持添加、编辑、删除、保存草稿、设为当前和拉取模型列表；缺少 API Key 时不能设为当前。</span>
+            </div>
+            <div class="matrix-row">
+              <strong>链接导入</strong>
+              <span>解析 <code>codexswitch://</code> 和 <code>ccswitch://</code>，展示预览，遮罩 API Key，确认后保存。</span>
+            </div>
+            <div class="matrix-row">
+              <strong>透明代理</strong>
+              <span>支持 <code>/health</code>、<code>/v1/models</code>、<code>/v1/responses</code>、<code>/v1/responses/compact</code>，流式响应原样返回。</span>
+            </div>
+            <div class="matrix-row">
+              <strong>主题系统</strong>
+              <span>浅色、暗黑、跟随系统三种模式，设置持久化，自绘窗口栏和所有状态组件同步换肤。</span>
+            </div>
+            <div class="matrix-row">
+              <strong>更新系统</strong>
+              <span>设置页提供检查更新、下载更新、安装更新；安装前统一调用恢复保护，避免 Codex 指向已停止代理。</span>
+            </div>
+            <div class="matrix-row">
+              <strong>窗口系统</strong>
+              <span>无系统标题栏，自绘拖拽区域和最小化、最大化、关闭按钮；关闭请求被拦截并先恢复 Codex 配置。</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="new-features">
+          <h2>新增能力</h2>
+          <div class="cards">
+            <div class="card">
+              <h3>暗黑模式切换</h3>
+              <p>提供浅色、暗黑、跟随系统三种策略。主题以 CSS variables 实现，并持久化到本地状态。</p>
+              <ul>
+                <li>前端使用 <code>data-theme</code> 切换 token。</li>
+                <li>设置页提供主题选项。</li>
+                <li>自绘标题栏、弹窗、表单和状态色都必须响应主题。</li>
+                <li>首次启动默认跟随系统。</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>软件更新</h3>
+              <p>使用 Tauri updater plugin。更新入口放在设置页，也支持启动后静默检查。</p>
+              <ul>
+                <li>发布包生成 updater artifacts。</li>
+                <li>更新包必须签名，公钥写入 <code>tauri.conf.json</code>。</li>
+                <li>支持 “检查中、无更新、可更新、下载中、安装中、失败” 状态。</li>
+                <li>安装更新前先执行关闭前恢复，确保 Codex 配置干净。</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>自绘窗口栏</h3>
+              <p>不使用系统窗口栏，窗口采用无边框设计，由前端绘制标题栏和窗口控制按钮。</p>
+              <ul>
+                <li><code>decorations: false</code>。</li>
+                <li>标题栏拖拽区域使用 <code>data-tauri-drag-region</code>。</li>
+                <li>按钮调用 Tauri Window API：最小化、最大化、关闭。</li>
+                <li>关闭按钮不直接销毁窗口，必须走恢复流程。</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="callout warning" style="margin-top: 16px">
+            <strong>关闭前自动恢复</strong>
+            <p style="margin-bottom: 0">
+              应用收到关闭请求时，如果当前处于已启用状态，必须先停止代理并恢复 Codex 配置，再关闭窗口。这样用户关闭软件后 Codex 仍能直接使用官方配置，避免 Codex 请求继续指向已停止的本地代理。
+            </p>
+          </div>
+        </section>
+
+        <section class="section" id="flows">
+          <h2>核心流程</h2>
+          <div class="flow-grid">
+            <div class="card">
+              <h3>首次启用</h3>
+              <p>读取 Codex 状态，启动本地代理，备份并写入固定 <code>model_provider = "codex-switch"</code>，Codex 只看到一个 provider。</p>
+            </div>
+            <div class="card">
+              <h3>切换第三方</h3>
+              <p>确认 Key 状态，更新 active provider。代理即时切换，必要时更新 Codex 顶层 <code>model</code>。</p>
+            </div>
+            <div class="card">
+              <h3>检查更新</h3>
+              <p>请求更新端点，展示版本说明。用户确认安装前执行配置恢复，随后下载并安装。</p>
+            </div>
+            <div class="card">
+              <h3>关闭应用</h3>
+              <p>拦截 close requested，禁用主界面操作，执行 restore，然后调用真正关闭。</p>
+            </div>
+          </div>
+
+          <div class="code-block" style="margin-top: 16px">
+            <div class="code-title">关闭前恢复伪代码</div>
+            <pre><code>onWindowCloseRequested(event):
+  event.preventDefault()
+  if state.enabled:
+    showClosingOverlay("正在恢复 Codex 配置")
+    stopProxy()
+    restoreCodexConfig()
+    state.enabled = false
+  destroyWindow()</code></pre>
+          </div>
+        </section>
+
+        <section class="section" id="security">
+          <h2>安全边界</h2>
+          <ul class="checklist">
+            <li>代理只监听 <code>127.0.0.1</code>。</li>
+            <li>不记录 API Key、Cookie、Authorization。</li>
+            <li>不记录请求体、提示词、工具参数和模型输出。</li>
+            <li>转发到 upstream 前必须删除 Codex 登录凭据。</li>
+            <li>Provider API Key 只存系统凭据。</li>
+            <li>远程导入配置只允许 HTTPS 且必须确认。</li>
+            <li>停用、关闭、更新前均要恢复 Codex 配置。</li>
+          </ul>
+        </section>
+
+        <section class="section" id="plan">
+          <h2>实现计划</h2>
+          <div class="timeline">
+            <div class="step">
+              <div>
+                <h3>初始化新项目</h3>
+                <p>在 <code>codex-switch</code> 中创建 Tauri 2 + React + TypeScript + Vite 工程，配置无系统标题栏窗口。</p>
+              </div>
+            </div>
+            <div class="step">
+              <div>
+                <h3>搭 UI 骨架</h3>
+                <p>首页、供应商、导入、设置、更新、关于。通过真实 Tauri 命令完成全流程。</p>
+              </div>
+            </div>
+            <div class="step">
+              <div>
+                <h3>实现状态和配置层</h3>
+                <p>写入/恢复 Codex 配置，保存主题和窗口设置。</p>
+              </div>
+            </div>
+            <div class="step">
+              <div>
+                <h3>实现代理和 provider 管理</h3>
+                <p>完成 provider 安全转发、导入兼容、模型列表和请求日志。</p>
+              </div>
+            </div>
+            <div class="step">
+              <div>
+                <h3>实现更新和关闭恢复</h3>
+                <p>接入 updater plugin，安装更新前和窗口关闭前都走同一套 restore guard。</p>
+              </div>
+            </div>
+            <div class="step">
+              <div>
+                <h3>验证和打包</h3>
+                <p>运行 typecheck、renderer build、cargo fmt、cargo test、Tauri dev、Tauri build。</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="acceptance">
+          <h2>验收清单</h2>
+          <ul class="checklist">
+            <li>新安装状态下供应商列表为空。</li>
+            <li>没有 active provider 时首页显示“未设置供应商”。</li>
+            <li>没有 active provider 时主按钮显示“先添加”并禁用。</li>
+            <li>默认写入固定 <code>model_provider = "codex-switch"</code>。</li>
+            <li>默认写入 <code>supports_websockets = false</code>。</li>
+            <li>添加带 API Key 的 provider 并设为当前后才能启用。</li>
+            <li>暗黑模式、浅色模式、跟随系统都可用。</li>
+            <li>窗口栏为自绘，拖拽和窗口控制正常。</li>
+            <li>关闭应用前自动恢复 Codex 配置。</li>
+            <li>安装更新前自动恢复 Codex 配置。</li>
+            <li>第三方转发不泄漏 Codex 登录凭据。</li>
+            <li>所有构建和测试命令通过。</li>
+          </ul>
+        </section>
+
+        <footer class="footer">
+          <p>
+            参考：<a href="https://v2.tauri.app/learn/window-customization/">Tauri Window Customization</a>，
+            <a href="https://v2.tauri.app/plugin/updater/">Tauri Updater</a>，
+            <a href="https://v2.tauri.app/reference/javascript/api/namespacewindow/">Tauri Window API</a>。
+          </p>
+        </footer>
+      </main>
+    </div>
+
+    <script>
+      const root = document.documentElement;
+      const toggle = document.getElementById("themeToggle");
+      const label = document.getElementById("themeLabel");
+      const stored = localStorage.getItem("codex-switch-doc-theme");
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+      function applyTheme(theme) {
+        root.dataset.theme = theme;
+        label.textContent = theme === "dark" ? "暗黑" : "浅色";
+        localStorage.setItem("codex-switch-doc-theme", theme);
+      }
+
+      applyTheme(stored || (prefersDark ? "dark" : "light"));
+
+      toggle.addEventListener("click", () => {
+        applyTheme(root.dataset.theme === "dark" ? "light" : "dark");
+      });
+    </script>
+  </body>
+</html>

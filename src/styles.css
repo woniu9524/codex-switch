@@ -1,0 +1,188 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    font-family:
+      "Segoe UI",
+      "Microsoft YaHei",
+      system-ui,
+      sans-serif;
+    color: #171717;
+    font-synthesis: none;
+    text-rendering: geometricPrecision;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    min-width: 380px;
+    min-height: 520px;
+    margin: 0;
+    overflow: hidden;
+    background: #f6f5f2;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button,
+  select,
+  label {
+    cursor: pointer;
+  }
+
+  input,
+  textarea {
+    cursor: text;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@layer utilities {
+  .app-shell {
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 0.86), rgb(246 245 242 / 0.94)),
+      #f6f5f2;
+  }
+
+  .app-shell ::selection {
+    background: rgb(5 150 105 / 0.18);
+  }
+
+  .app-shell main::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .app-shell main::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+    background-color: rgb(120 113 108 / 0.35);
+  }
+
+  .theme-dark {
+    background: #101412;
+    color: #f5f5f4;
+    color-scheme: dark;
+  }
+
+  .theme-dark .app-shell {
+    background: #101412;
+  }
+
+  .theme-dark .title-bar,
+  .theme-dark .bottom-nav {
+    background-color: #141916 !important;
+    border-color: #2f3934 !important;
+    color: #f5f5f4 !important;
+  }
+
+  .theme-dark .window-button {
+    color: #f5f5f4 !important;
+  }
+
+  .theme-dark .window-button:hover {
+    background-color: #202822 !important;
+  }
+
+  .theme-dark .bg-white,
+  .theme-dark .bg-stone-50,
+  .theme-dark .bg-white\/70,
+  .theme-dark .hover\:bg-stone-50:hover,
+  .theme-dark .hover\:bg-stone-100:hover {
+    background-color: #171c19 !important;
+  }
+
+  .theme-dark .bg-stone-100,
+  .theme-dark .hover\:bg-stone-100:hover,
+  .theme-dark .hover\:bg-stone-50:hover {
+    background-color: #202822 !important;
+  }
+
+  .theme-dark .border-stone-100,
+  .theme-dark .border-stone-200,
+  .theme-dark .border-stone-300,
+  .theme-dark .border-emerald-200,
+  .theme-dark .border-amber-200,
+  .theme-dark .border-red-200 {
+    border-color: #2f3934 !important;
+  }
+
+  .theme-dark .divide-stone-100 > :not([hidden]) ~ :not([hidden]),
+  .theme-dark .border-t {
+    border-color: #2f3934 !important;
+  }
+
+  .theme-dark .text-stone-950,
+  .theme-dark .text-stone-900,
+  .theme-dark .text-stone-800,
+  .theme-dark .text-stone-700 {
+    color: #f5f5f4 !important;
+  }
+
+  .theme-dark .text-stone-600,
+  .theme-dark .text-stone-500,
+  .theme-dark .text-stone-400,
+  .theme-dark .placeholder\:text-stone-400::placeholder {
+    color: #a8a29e !important;
+  }
+
+  .theme-dark .text-emerald-800,
+  .theme-dark .text-emerald-700 {
+    color: #86efac !important;
+  }
+
+  .theme-dark .bg-emerald-50,
+  .theme-dark .hover\:bg-emerald-50:hover {
+    background-color: rgb(20 83 45 / 0.34) !important;
+  }
+
+  .theme-dark .ring-emerald-500 {
+    --tw-ring-color: #059669 !important;
+  }
+
+  .theme-dark .bg-emerald-800,
+  .theme-dark .bg-emerald-700 {
+    background-color: #047857 !important;
+  }
+
+  .theme-dark .bg-amber-50 {
+    background-color: rgb(120 53 15 / 0.28) !important;
+  }
+
+  .theme-dark .bg-red-50 {
+    background-color: rgb(127 29 29 / 0.28) !important;
+  }
+
+  .theme-dark input,
+  .theme-dark select,
+  .theme-dark textarea {
+    background-color: #111713 !important;
+    border-color: #334039 !important;
+    color: #f5f5f4 !important;
+  }
+
+  .theme-dark .provider-avatar {
+    background-color: #111713 !important;
+  }
+
+  .theme-dark .status-dot.bg-stone-300,
+  .theme-dark .bg-stone-300 {
+    background-color: #4a554f !important;
+  }
+}
